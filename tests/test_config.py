@@ -72,5 +72,5 @@ def test_class_importance_is_a_mapping(raw_config: dict) -> None:
     config = config_from_dict(raw_config)
     assert config.priority.class_importance["person"] == 1.0
     raw_config["priority"]["class_importance"]["person"] = "high"
-    with pytest.raises(ConfigError, match="class_importance.person"):
+    with pytest.raises(ConfigError, match=r"class_importance\.person"):
         config_from_dict(raw_config)
