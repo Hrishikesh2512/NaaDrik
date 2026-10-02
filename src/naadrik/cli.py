@@ -80,6 +80,17 @@ def _build_parser() -> argparse.ArgumentParser:
     live.add_argument("--mute", action="store_true", help="start with sound muted")
     live.set_defaults(handler=_run_live)
 
+    train = commands.add_parser("train", help="training mode with spoken labels")
+    train.add_argument("--no-camera", action="store_true", help="practise with synthetic objects")
+    train.add_argument("--trials", type=int, default=12, help="objects in a --no-camera session")
+    train.add_argument("--no-speech", action="store_true", help="sounds only")
+    train.add_argument("--always-speak", action="store_true", help="ignore the speech fade-out")
+    train.add_argument("--reset-progress", action="store_true", help="start again from session 1")
+    train.add_argument("--camera", type=int, help="camera index (overrides config)")
+    train.add_argument("--no-window", action="store_true", help="run without the debug window")
+    train.add_argument("--duration", type=float, help="stop after this many seconds")
+    train.set_defaults(handler=_run_train)
+
     calibrate = commands.add_parser("calibrate", help="record near/far depth references")
     calibrate.add_argument("--camera", type=int, help="camera index (overrides config)")
     calibrate.set_defaults(handler=_run_calibrate)
@@ -142,6 +153,45 @@ def _run_live(args: argparse.Namespace) -> int:
         muted=args.mute,
     )
     LiveSession(load_config(args.config), options).run()
+    return 0
+
+
+def _run_train(args: argparse.Namespace) -> int:
+    from naadrik.speech import Speaker
+    from naadrik.training.progress import TrainingProgress, speech_probability
+
+    config = load_config(args.config)
+    progress = TrainingProgress.load(config.training)
+    if args.reset_progress:
+        progress.reset()
+    session = progress.start_session()
+    if args.no_speech:
+        probability, speaker = 0.0, None
+    else:
+        probability = 1.0 if args.always_speak else speech_probability(session, config.training)
+        speaker = Speaker(config.training, config.audio.sample_rate)
+    log.info("training session %d: announcing %.0f%% of objects", session, probability * 100)
+
+    if args.no_camera:
+        from naadrik.training.scripted import run_scripted_training
+
+        run_scripted_training(
+            config, speaker, probability, args.trials, _output_device(args, config)
+        )
+        return 0
+
+    from naadrik.live import LiveOptions, LiveSession
+    from naadrik.training.coach import TrainingCoach
+
+    coach = TrainingCoach(config, speaker.say, probability) if speaker else None
+    options = LiveOptions(
+        camera_index=args.camera,
+        device=args.device,
+        show_window=not args.no_window,
+        duration_s=args.duration,
+        coach=coach,
+    )
+    LiveSession(config, options).run()
     return 0
 
 
