@@ -6,6 +6,25 @@ All notable changes to Naadrik are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.1] - 2026-10-02
+
+### Fixed
+
+- Safety: dark and black objects were silent. Every object now has a presence layer, a soft
+  neutral hum at its pitch, pulse rate and 3D position, with the colour instruments mixed on top.
+  Black plays the hum alone; white plays the hum plus all three instruments loud.
+
+### Added
+
+- `instruments.presence` in `config.yaml` (`level`, `cutoff_ratio`, `noise`); a level of 0 is
+  rejected so the safety property cannot be switched off by accident.
+- `black-vs-white` demo scenario.
+
+### Changed
+
+- `audio.master_gain` 0.8 → 0.75 to keep a single white object below the limiter knee.
+- Study training instructions for the Naadrik condition mention the presence hum.
+
 ## [0.4.0] - 2026-10-02
 
 ### Added
