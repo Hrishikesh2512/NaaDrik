@@ -6,6 +6,19 @@ All notable changes to Naadrik are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.3.0] - 2026-10-02
+
+### Added
+
+- `naadrik train`: training mode that speaks a label such as "red cup, left, near" before an
+  object's sound, live with the camera or with synthetic objects (`--no-camera`).
+- Offline text-to-speech through eSpeak NG, cached, spatialised at the object's direction.
+- Announcements hold the object's voice until the label has been spoken and duck other voices.
+- Speech fade-out across sessions: full speech for three sessions, then a linear fade over
+  five; progress stored in the user data directory, with `--reset-progress` and `--always-speak`.
+- Names for all 27 quantised colours.
+- Synthetic 3×3×3 grid stimuli shared with the upcoming study mode.
+
 ## [0.2.0] - 2026-10-02
 
 ### Added
