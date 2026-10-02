@@ -32,10 +32,12 @@ class RecordingMixer(LiveMixer):
     def __init__(self, engine: SoundEngine) -> None:
         super().__init__(engine)
         self.updates: list[dict] = []
+        self.announcements: list[dict] = []
 
-    def update(self, objects, capture_time):  # type: ignore[no-untyped-def]
+    def update(self, objects, capture_time, announcements=None):  # type: ignore[no-untyped-def]
         self.updates.append(dict(objects))
-        super().update(objects, capture_time)
+        self.announcements.append(dict(announcements or {}))
+        super().update(objects, capture_time, announcements)
 
 
 @pytest.fixture(scope="module")
