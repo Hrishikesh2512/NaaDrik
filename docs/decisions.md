@@ -205,3 +205,29 @@ instruments. Choices:
 
 Study data recorded before v0.4.1 used the old mapping (black silent); do not pool it with later
 sessions without noting the version (each session JSON records it).
+
+## 2026-10-02 · Android: AudioTrack low-latency rather than Oboe
+
+The brief allows Oboe (NDK) or AudioTrack in low-latency mode. AudioTrack with
+`PERFORMANCE_MODE_LOW_LATENCY` and float PCM at the device's native rate and burst size gets the
+same fast mixer path that Oboe's AAudio/OpenSL backends use; MMAP (Oboe's extra advantage) is not
+offered on most mid-range phones, including the Galaxy A30s test device. Staying in Kotlin keeps
+one engine implementation that is unit-tested on the JVM and needs no NDK. The output thread runs
+at urgent-audio priority, starts with a two-burst buffer and grows it by one burst after any
+underrun, the latency tuning Oboe applies. Latency is measured from AudioTrack DAC timestamps.
+
+## 2026-10-02 · Android: one engine, one config, parity-tested
+
+The Kotlin `core` module ports the Python sound engine line for line (instruments, presence hum,
+note bank, voices, spatialiser, limiter). The app reads the same `config.yaml`, with the same
+strict validation. A fixture of reference values exported from Python (mapping, ITD, head
+shadow, limiter, plus later-milestone values such as priority and colour names) is checked by
+the Kotlin tests to 1e-9, and a pytest fails if the fixture is stale. Notes are rendered at the
+device's native sample rate so audio never passes through a resampler. Unlike the Python
+version, voices mix the four layers (hum and three instruments) per sample from the note bank
+instead of caching premixed notes, so the audio thread never allocates.
+
+## 2026-10-02 · Android: Jetpack Compose UI
+
+Compose gives semantic roles (headings, live regions, content descriptions) directly in code,
+which suits a TalkBack-first app. All touch targets are at least 64 dp.
