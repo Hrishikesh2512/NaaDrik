@@ -53,11 +53,11 @@ A typical webcam sees about ±35°. Mapping that faithfully would squeeze every 
 narrow frontal arc where headphone localisation is weakest. Exaggerating to ±80° trades
 geometric truth for discriminability; it is configurable (`max_azimuth_deg`).
 
-## 2026-10-02 · Black is silent
+## 2026-10-02 · Black is silent (superseded in v0.4.1)
 
-The brief specifies black = silence and that is implemented. It means a dark object right in
-front of the user is inaudible. This is a safety concern for real-world use and should be
-revisited after the study (for example, a quiet presence tone for close objects).
+The brief specified black = silence, and v0.1.0 to v0.4.0 implemented it. A dark object right in
+front of the user was inaudible; in live testing a person in dark clothing produced no sound.
+Replaced by the presence layer below.
 
 ## 2026-10-02 · Pluck saturation
 
@@ -184,3 +184,24 @@ scan, a tick per sweep.
   participants is noted as a limitation in `docs/study.md`.
 * Simulated participants (`oracle`, `random`) validate the pipeline; their ids carry a `sim-`
   prefix and the report flags them, so they cannot be mistaken for human data.
+
+## 2026-10-02 · Presence layer: no detected object is ever silent (v0.4.1)
+
+Every note now carries a soft neutral hum at the object's pitch, pulse and position, with the
+colour instruments mixed on top. Black is the hum alone; white is the hum plus all three
+instruments. Choices:
+
+* **Pitched hum rather than plain noise.** Height is encoded by pitch, so the hum is a muted
+  triangle at the note frequency. Some band-limited noise around the pitch gives it a texture
+  unlike any colour instrument, and it has no vibrato or attack transient, so it is not mistaken
+  for the flute.
+* **Level 0.25, below the "low" colour level (0.35).** Loudness still orders brightness
+  (black < dark colours < bright colours < white) and black is about 15 dB below a loud red:
+  quiet but clearly present.
+* **Zero is rejected.** The loader refuses `presence.level: 0`, so the safety property cannot be
+  configured away by accident.
+* **`master_gain` lowered from 0.8 to 0.75** so a single white object (four layers) stays below
+  the limiter knee.
+
+Study data recorded before v0.4.1 used the old mapping (black silent); do not pool it with later
+sessions without noting the version (each session JSON records it).
