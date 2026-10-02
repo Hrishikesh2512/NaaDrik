@@ -123,6 +123,7 @@ class SpatialConfig:
     mode: str
     max_azimuth_deg: float
     head_radius_m: float
+    extra_ild_db: float
     rear_lowpass_hz: float
     smoothing_ms: float
 

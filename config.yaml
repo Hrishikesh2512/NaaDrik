@@ -55,6 +55,7 @@ spatial:
   mode: head_model         # head_model (ITD + spherical-head shadow) | pan (ITD + constant-power ILD)
   max_azimuth_deg: 80.0    # azimuth at the frame edges; wider than the lens so positions separate clearly
   head_radius_m: 0.0875
+  extra_ild_db: 6.0        # broadband level difference at 90 deg, on top of the head model, so low notes lateralise too
   rear_lowpass_hz: 3500.0  # extra darkening for sources behind the listener
   smoothing_ms: 60.0       # glide time constant for azimuth and pulse rate
 
