@@ -296,6 +296,27 @@ class StudyConfig:
 
 
 @dataclass(frozen=True)
+class AndroidConfig:
+    """Read by the Android app only; validated here so both loaders accept the same file."""
+
+    detection_model: str
+    depth_model: str
+    depth_input_size: int
+    depth_delegate: str
+    depth_threads: int
+    detection_delegate: str
+    analysis_width: int
+    analysis_height: int
+    use_arcore_depth: bool
+
+    def __post_init__(self) -> None:
+        for name in ("depth_delegate", "detection_delegate"):
+            _require(getattr(self, name) in ("cpu", "gpu"), f"android.{name} must be cpu or gpu")
+        _require(self.depth_input_size > 0, "android.depth_input_size must be positive")
+        _require(self.depth_threads >= 1, "android.depth_threads must be at least 1")
+
+
+@dataclass(frozen=True)
 class Config:
     audio: AudioConfig
     pitch: PitchConfig
@@ -311,6 +332,7 @@ class Config:
     priority: PriorityConfig
     training: TrainingConfig
     study: StudyConfig
+    android: AndroidConfig
 
     def __post_init__(self) -> None:
         longest_event = self.pulse.max_gate_s + self.pulse.release_ms / 1000.0

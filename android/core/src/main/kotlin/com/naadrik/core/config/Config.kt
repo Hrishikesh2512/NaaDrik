@@ -20,6 +20,7 @@ data class Config(
     val priority: PriorityConfig,
     val training: TrainingConfig,
     val study: StudyConfig,
+    val android: AndroidConfig,
 ) {
     init {
         val longestEvent = pulse.maxGateS + pulse.releaseMs / 1000.0
@@ -318,6 +319,25 @@ data class StudyConfig(
     }
 }
 
+data class AndroidConfig(
+    val detectionModel: String,
+    val depthModel: String,
+    val depthInputSize: Int,
+    val depthDelegate: String,
+    val depthThreads: Int,
+    val detectionDelegate: String,
+    val analysisWidth: Int,
+    val analysisHeight: Int,
+    val useArcoreDepth: Boolean,
+) {
+    init {
+        require(depthDelegate == "cpu" || depthDelegate == "gpu", "android.depth_delegate must be cpu or gpu")
+        require(detectionDelegate == "cpu" || detectionDelegate == "gpu", "android.detection_delegate must be cpu or gpu")
+        require(depthInputSize > 0, "android.depth_input_size must be positive")
+        require(depthThreads >= 1, "android.depth_threads must be at least 1")
+    }
+}
+
 private fun YamlSection.fromYaml(): Config =
     Config(
         audio =
@@ -473,6 +493,20 @@ private fun YamlSection.fromYaml(): Config =
                             bool("click"),
                         )
                     },
+                )
+            },
+        android =
+            child("android") {
+                AndroidConfig(
+                    string("detection_model"),
+                    string("depth_model"),
+                    int("depth_input_size"),
+                    string("depth_delegate"),
+                    int("depth_threads"),
+                    string("detection_delegate"),
+                    int("analysis_width"),
+                    int("analysis_height"),
+                    bool("use_arcore_depth"),
                 )
             },
     )

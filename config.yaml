@@ -160,3 +160,14 @@ study:
     high_hz: 5000.0        # top row (exponential spacing)
     greyscale: luma        # luma (0.299 R + 0.587 G + 0.114 B) | mean
     click: true            # tick at the start of each sweep
+
+android:                   # phone-only settings; the mapping itself is shared with desktop
+  detection_model: efficientdet_lite0_int8.tflite   # int8 variant: faster on phone CPUs
+  depth_model: midas_v21_small_256.tflite           # MiDaS v2.1 small, 256 x 256
+  depth_input_size: 256
+  depth_delegate: gpu      # gpu (falls back to cpu when unsupported) | cpu
+  depth_threads: 2
+  detection_delegate: cpu  # cpu | gpu
+  analysis_width: 640      # camera analysis stream; frames are then scaled to camera.process_width
+  analysis_height: 480
+  use_arcore_depth: true   # prefer ARCore Depth when the phone supports it
