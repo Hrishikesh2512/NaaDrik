@@ -2,11 +2,11 @@ package com.naadrik.app.demo
 
 import android.content.Context
 import android.util.Log
+import com.naadrik.app.EngineProvider
 import com.naadrik.app.LOG_TAG
 import com.naadrik.app.audio.AudioOutput
 import com.naadrik.app.audio.DeviceAudio
 import com.naadrik.app.audio.Renderer
-import com.naadrik.core.config.Config
 import com.naadrik.core.sound.LiveMixer
 import com.naadrik.core.sound.ObjectState
 import com.naadrik.core.sound.Scenario
@@ -43,19 +43,9 @@ class DemoController(
 
     fun load() {
         scope.launch {
-            val started = System.nanoTime()
-            engine =
-                withContext(Dispatchers.Default) {
-                    val yaml =
-                        context.assets
-                            .open("config.yaml")
-                            .bufferedReader()
-                            .use { it.readText() }
-                    SoundEngine(Config.parse(yaml), sampleRate = device.sampleRate)
-                }
-            val buildMs = (System.nanoTime() - started) / 1e6
-            val lines =
-                deviceReport(context, device) + "note bank built in %.0f ms (%d notes x 4 layers)".format(buildMs, engine.bank.nDegrees)
+            engine = EngineProvider.get(context)
+            val notes = "note bank built in %.0f ms (%d notes x 4 layers)".format(EngineProvider.buildMs, engine.bank.nDegrees)
+            val lines = deviceReport(context, device) + notes
             lines.forEach { Log.i(LOG_TAG, "REPORT $it") }
             _state.value = DemoState(ready = true, status = "Ready. Choose a sound.", report = lines)
         }

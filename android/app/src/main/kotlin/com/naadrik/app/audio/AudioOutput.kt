@@ -84,6 +84,13 @@ class AudioOutput(
     /** Whether Android granted the low-latency fast path; fixed when the track is built. */
     val fastPath: Boolean = track.performanceMode == AudioTrack.PERFORMANCE_MODE_LOW_LATENCY
 
+    /**
+     * Latest measured time from writing a frame to it reaching the DAC, refreshed by the audio
+     * thread itself so readers (including the mixer on that thread) never touch the track.
+     */
+    @Volatile var latestOutputLatencyS: Double = 0.0
+        private set
+
     /** Current buffer size, kept up to date by the audio thread; still valid after stop(). */
     @Volatile var bufferFrames: Int = 0
         private set
@@ -135,6 +142,7 @@ class AudioOutput(
         Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
         val buffer = FloatArray(burst * 2)
         var lastUnderruns = track.underrunCount
+        var blocks = 0L
         while (running) {
             val started = System.nanoTime()
             renderer.render(burst, buffer)
@@ -145,6 +153,7 @@ class AudioOutput(
                 break
             }
             framesWritten += written / 2
+            if (++blocks % LATENCY_REFRESH_BLOCKS == 0L) outputLatencyS()?.let { latestOutputLatencyS = it }
             val underruns = track.underrunCount
             if (underruns > lastUnderruns) {
                 stats.underruns += underruns - lastUnderruns
@@ -159,6 +168,7 @@ class AudioOutput(
     private companion object {
         const val BYTES_PER_FRAME = 8 // stereo float
         const val JOIN_TIMEOUT_MS = 1000L
+        const val LATENCY_REFRESH_BLOCKS = 50L
     }
 }
 
