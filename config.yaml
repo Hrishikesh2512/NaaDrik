@@ -140,3 +140,19 @@ training:
   full_speech_sessions: 3  # sessions in which every object is announced
   fade_sessions: 5         # then the chance of announcing falls linearly to zero
   progress_path: null      # null = user data directory (~/.local/share/naadrik/training.yaml)
+
+study:
+  stimulus_s: 3.0          # each stimulus plays this long (3 sweeps for the baseline sonifier)
+  colours: [red, green, blue, yellow, white]
+  baseline_trials: 9       # no explanation, no feedback
+  training_trials: 27      # explanation and feedback after every response
+  test_trials: 27          # no feedback
+  results_dir: results
+  baseline_sonifier:       # modelled on the classic vOICe image-to-sound mapping
+    sweep_s: 1.0           # left-to-right scan time
+    rows: 32               # image rows, one sine each
+    columns: 64
+    low_hz: 500.0          # bottom row
+    high_hz: 5000.0        # top row (exponential spacing)
+    greyscale: luma        # luma (0.299 R + 0.587 G + 0.114 B) | mean
+    click: true            # tick at the start of each sweep

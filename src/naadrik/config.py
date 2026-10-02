@@ -244,6 +244,41 @@ class TrainingConfig:
 
 
 @dataclass(frozen=True)
+class BaselineSonifierConfig:
+    sweep_s: float
+    rows: int
+    columns: int
+    low_hz: float
+    high_hz: float
+    greyscale: str
+    click: bool
+
+    def __post_init__(self) -> None:
+        _require(self.sweep_s > 0.0, "study.baseline_sonifier.sweep_s must be positive")
+        _require(self.rows >= 2 and self.columns >= 2, "baseline sonifier needs >= 2 rows/columns")
+        _require(0.0 < self.low_hz < self.high_hz, "baseline sonifier: low_hz < high_hz required")
+        _require(self.greyscale in ("luma", "mean"), "greyscale must be luma or mean")
+
+
+@dataclass(frozen=True)
+class StudyConfig:
+    stimulus_s: float
+    colours: tuple[str, ...]
+    baseline_trials: int
+    training_trials: int
+    test_trials: int
+    results_dir: str
+    baseline_sonifier: BaselineSonifierConfig
+
+    def __post_init__(self) -> None:
+        _require(self.stimulus_s > 0.0, "study.stimulus_s must be positive")
+        _require(len(self.colours) >= 2, "study.colours needs at least two colours")
+        _require(len(set(self.colours)) == len(self.colours), "study.colours has duplicates")
+        for name in ("baseline_trials", "training_trials", "test_trials"):
+            _require(getattr(self, name) >= 0, f"study.{name} must not be negative")
+
+
+@dataclass(frozen=True)
 class Config:
     audio: AudioConfig
     pitch: PitchConfig
@@ -258,6 +293,7 @@ class Config:
     tracking: TrackingConfig
     priority: PriorityConfig
     training: TrainingConfig
+    study: StudyConfig
 
     def __post_init__(self) -> None:
         longest_event = self.pulse.max_gate_s + self.pulse.release_ms / 1000.0
@@ -313,7 +349,10 @@ def _resolve_paths(config: Config, base: Path) -> Config:
     training = config.training
     if training.progress_path is not None:
         training = dataclasses.replace(training, progress_path=absolute(training.progress_path))
-    return dataclasses.replace(config, detection=detection, depth=depth, training=training)
+    study = dataclasses.replace(config.study, results_dir=absolute(config.study.results_dir))
+    return dataclasses.replace(
+        config, detection=detection, depth=depth, training=training, study=study
+    )
 
 
 def config_from_dict(data: Any) -> Config:
