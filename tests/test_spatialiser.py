@@ -6,6 +6,7 @@ import pytest
 from naadrik.config import Config
 from naadrik.spatialiser import (
     Spatialiser,
+    ear_alphas,
     interaural_time_difference,
     lateral_angle,
 )
@@ -47,6 +48,14 @@ def test_itd_sign_and_magnitude() -> None:
 def test_lateral_angle_folds_rear_sources() -> None:
     assert lateral_angle(150.0) == pytest.approx(lateral_angle(30.0))
     assert lateral_angle(-135.0) == pytest.approx(lateral_angle(-45.0))
+
+
+@pytest.mark.parametrize("azimuth", [-80.0, -30.0, 45.0, 90.0])
+def test_head_shadow_power_is_constant_across_azimuth(azimuth: float) -> None:
+    front = np.hypot(*ear_alphas(0.0))
+    assert np.hypot(*ear_alphas(azimuth)) == pytest.approx(front)
+    left, right = ear_alphas(azimuth)
+    assert (left > right) == (azimuth < 0)
 
 
 @pytest.mark.parametrize("mode", ["head_model", "pan"])

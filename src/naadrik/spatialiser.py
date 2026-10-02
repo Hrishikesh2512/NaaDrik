@@ -43,14 +43,31 @@ def interaural_time_difference(azimuth_deg: float, head_radius_m: float) -> floa
     return head_radius_m / SPEED_OF_SOUND_M_S * (lateral + math.sin(lateral))
 
 
-def head_shadow_coefficients(
-    angle_from_ear_deg: float, head_radius_m: float, sr: int
-) -> tuple[np.ndarray, np.ndarray]:
-    """Brown-Duda head shadow H(s) = (2w0 + a s) / (2w0 + s), discretised by bilinear transform."""
+def shadow_alpha(angle_from_ear_deg: float) -> float:
+    """Brown-Duda high-frequency gain at one ear: 2 facing the source, ~0.1 in the shadow."""
     theta = abs(wrap_degrees(angle_from_ear_deg))
-    alpha = (1.0 + _ALPHA_MIN / 2.0) + (1.0 - _ALPHA_MIN / 2.0) * math.cos(
+    return (1.0 + _ALPHA_MIN / 2.0) + (1.0 - _ALPHA_MIN / 2.0) * math.cos(
         math.radians(theta / _THETA_MIN_DEG * 180.0)
     )
+
+
+def ear_alphas(azimuth_deg: float) -> tuple[float, float]:
+    """High-frequency gains for (left, right), power-normalised to the frontal position.
+
+    The raw model makes a lateral source up to 6 dB louder than a centred one. Loudness is
+    reserved for brightness, so only the interaural ratio is kept.
+    """
+    left = shadow_alpha(azimuth_deg + 90.0)
+    right = shadow_alpha(azimuth_deg - 90.0)
+    front = math.sqrt(2.0) * shadow_alpha(90.0)
+    scale = front / math.hypot(left, right)
+    return left * scale, right * scale
+
+
+def head_shadow_coefficients(
+    alpha: float, head_radius_m: float, sr: int
+) -> tuple[np.ndarray, np.ndarray]:
+    """Head shadow H(s) = (2w0 + alpha s) / (2w0 + s), discretised by bilinear transform."""
     w0 = SPEED_OF_SOUND_M_S / head_radius_m
     k = 2.0 * sr
     norm = 2.0 * w0 + k
@@ -115,10 +132,8 @@ class Spatialiser:
         return np.array([far_ear_gain, 1.0]) if side > 0 else np.array([1.0, far_ear_gain])
 
     def _apply_head_shadow(self, x: np.ndarray, azimuth_deg: float, ear: int) -> np.ndarray:
-        ear_azimuth = -90.0 if ear == 0 else 90.0
-        b, a = head_shadow_coefficients(
-            azimuth_deg - ear_azimuth, self._cfg.head_radius_m, self._sr
-        )
+        alpha = ear_alphas(azimuth_deg)[ear]
+        b, a = head_shadow_coefficients(alpha, self._cfg.head_radius_m, self._sr)
         y, self._shadow_state[ear] = signal.lfilter(b, a, x, zi=self._shadow_state[ear])
         return y
 
