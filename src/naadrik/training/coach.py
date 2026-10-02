@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import logging
 import random
 from collections.abc import Callable, Iterable
 from dataclasses import dataclass
@@ -11,6 +12,8 @@ import numpy as np
 from naadrik.config import Config
 from naadrik.sound_engine import ObjectState
 from naadrik.training.describe import describe
+
+log = logging.getLogger(__name__)
 
 
 @dataclass(frozen=True)
@@ -54,6 +57,7 @@ class TrainingCoach:
             text = describe(candidate.label, candidate.state, self._config)
             clips[candidate.object_id] = self._say(text)
             self.spoken.append(text)
+            log.info("announcing: %s", text)
         self._forget_older_than(now - 10 * repeat)
         return clips
 
