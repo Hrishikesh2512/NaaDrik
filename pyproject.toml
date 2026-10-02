@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "naadrik"
-version = "0.1.0"
+version = "0.2.0"
 description = "Offline assistive sonification: perceive objects through sound."
 readme = "README.md"
 license = "Apache-2.0"
@@ -14,6 +14,9 @@ dependencies = [
     "scipy>=1.11",
     "pyyaml>=6.0",
     "sounddevice>=0.4.6",
+    "opencv-contrib-python>=4.8",
+    "mediapipe>=0.10.14",
+    "onnxruntime>=1.17",
 ]
 
 [project.optional-dependencies]

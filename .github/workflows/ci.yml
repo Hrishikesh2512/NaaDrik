@@ -17,7 +17,7 @@ jobs:
           python-version: ${{ matrix.python-version }}
           cache: pip
       - name: Install system libraries
-        run: sudo apt-get update && sudo apt-get install -y libportaudio2
+        run: sudo apt-get update && sudo apt-get install -y libportaudio2 libgl1 libegl1
       - name: Install package
         run: pip install -e ".[dev]"
       - name: Lint

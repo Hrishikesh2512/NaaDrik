@@ -88,8 +88,10 @@ class AudioOutput:
         sample_rate: int,
         block_size: int,
         device: str | int | None = None,
+        latency: float | str = "low",
     ) -> None:
         self._renderer = renderer
+        self._latency = latency
         self._sample_rate = sample_rate
         self._block_size = block_size
         self._device = device
@@ -98,6 +100,7 @@ class AudioOutput:
         self.finished = threading.Event()
         self.callbacks = 0
         self.underflows = 0
+        self.output_delay_s = 0.0
         self.error: BaseException | None = None
 
     @property
@@ -117,7 +120,7 @@ class AudioOutput:
                 channels=2,
                 dtype="float32",
                 device=self._device,
-                latency="low",
+                latency=self._latency,
                 callback=self._callback,
                 finished_callback=self.finished.set,
             )
@@ -155,11 +158,12 @@ class AudioOutput:
         except AudioDeviceError:
             log.debug("stream abort timed out; leaving it to the OS at exit")
 
-    def _callback(self, outdata: np.ndarray, frames: int, _time: Any, status: Any) -> None:
+    def _callback(self, outdata: np.ndarray, frames: int, time_info: Any, status: Any) -> None:
         self.callbacks += 1
         self._first_callback.set()
         if status.output_underflow:
             self.underflows += 1
+        self.output_delay_s = self._output_delay(time_info)
         try:
             block = self._renderer(frames)
         except Exception as exc:
@@ -171,6 +175,16 @@ class AudioOutput:
         if produced < frames:
             outdata[produced:] = 0.0
             raise _sounddevice().CallbackStop
+
+    def _output_delay(self, time_info: Any) -> float:
+        """Time until this block reaches the DAC, from PortAudio's clock when it provides one."""
+        try:
+            delay = float(time_info.outputBufferDacTime - time_info.currentTime)
+        except (AttributeError, TypeError):
+            delay = 0.0
+        if 0.0 < delay < 1.0:
+            return delay
+        return float(self._stream.latency) if self._stream is not None else 0.0
 
 
 class BufferRenderer:

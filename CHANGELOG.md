@@ -6,6 +6,32 @@ All notable changes to Naadrik are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.2.0] - 2026-10-02
+
+### Added
+
+- `naadrik live`: real-time webcam sonification with separate capture, detection, depth and
+  audio threads.
+- Object detection with MediaPipe EfficientDet-Lite0 (Apache-2.0).
+- Monocular depth with Depth Anything V2 Small on ONNX Runtime, run every Nth frame; median box
+  disparity normalised against the scene or a calibration, quantised to near / mid / far with
+  hysteresis.
+- `naadrik calibrate` to record near and far depth references.
+- Per-object colour from the median of the box centre with grey-world white balance and
+  exposure normalisation.
+- IoU tracker with smoothed position, velocity, distance, approach rate and colour so sounds
+  glide between frames.
+- Prioritiser scoring closeness × class importance × centredness with a motion boost and a
+  sticky top-3 selection.
+- Live mixer that creates, updates and releases voices on the audio thread.
+- End-to-end and per-stage latency measurement, logged and shown in the debug window.
+- Debug window with boxes, depth view, colour swatches and per-object sound parameters.
+- `naadrik models` to check and download models with checksum verification.
+
+### Fixed
+
+- Qt font and Wayland warnings from the OpenCV wheel's bundled Qt.
+
 ## [0.1.0] - 2026-10-02
 
 ### Added

@@ -70,6 +70,24 @@ def _build_parser() -> argparse.ArgumentParser:
     demo.add_argument("--pause", type=float, default=0.8, help="seconds between scenarios")
     demo.set_defaults(handler=_run_demo)
 
+    live = commands.add_parser("live", help="sonify the webcam in real time")
+    live.add_argument("--camera", type=int, help="camera index (overrides config)")
+    live.add_argument("--no-window", action="store_true", help="run without the debug window")
+    live.add_argument("--duration", type=float, help="stop after this many seconds")
+    live.add_argument(
+        "--save-debug", type=Path, help="write the debug view to this image each second"
+    )
+    live.add_argument("--mute", action="store_true", help="start with sound muted")
+    live.set_defaults(handler=_run_live)
+
+    calibrate = commands.add_parser("calibrate", help="record near/far depth references")
+    calibrate.add_argument("--camera", type=int, help="camera index (overrides config)")
+    calibrate.set_defaults(handler=_run_calibrate)
+
+    models = commands.add_parser("models", help="show or download the detection and depth models")
+    models.add_argument("action", nargs="?", choices=["status", "download"], default="status")
+    models.set_defaults(handler=_run_models)
+
     devices = commands.add_parser("devices", help="list audio output devices")
     devices.set_defaults(handler=_run_devices)
     return parser
@@ -110,6 +128,46 @@ def _run_demo(args: argparse.Namespace) -> int:
 
 def _output_device(args: argparse.Namespace, config: Config) -> str | int | None:
     return args.device if args.device is not None else config.audio.device
+
+
+def _run_live(args: argparse.Namespace) -> int:
+    from naadrik.live import LiveOptions, LiveSession
+
+    options = LiveOptions(
+        camera_index=args.camera,
+        device=args.device,
+        show_window=not args.no_window,
+        duration_s=args.duration,
+        save_debug=args.save_debug,
+        muted=args.mute,
+    )
+    LiveSession(load_config(args.config), options).run()
+    return 0
+
+
+def _run_calibrate(args: argparse.Namespace) -> int:
+    import dataclasses
+
+    from naadrik.calibrate import run_calibration
+
+    config = load_config(args.config)
+    if args.camera is not None:
+        camera = dataclasses.replace(config.camera, index=args.camera)
+        config = dataclasses.replace(config, camera=camera)
+    run_calibration(config)
+    return 0
+
+
+def _run_models(args: argparse.Namespace) -> int:
+    from naadrik import models
+
+    config = load_config(args.config)
+    for spec, path, state in models.model_status(config):
+        if args.action == "download" and state == "missing":
+            models.download(spec, path)
+            state = "downloaded"
+        print(f"{state:10} {spec.name} [{spec.licence}]\n           {path}")
+    return 0
 
 
 def _run_devices(_args: argparse.Namespace) -> int:
