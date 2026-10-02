@@ -117,10 +117,27 @@ class FluteConfig:
 
 
 @dataclass(frozen=True)
+class PresenceConfig:
+    level: float
+    cutoff_ratio: float
+    noise: float
+
+    def __post_init__(self) -> None:
+        _require(
+            0.0 < self.level <= 1.0,
+            "instruments.presence.level must be in (0, 1]: every object must stay audible, "
+            "including black ones",
+        )
+        _require(self.cutoff_ratio >= 1.0, "instruments.presence.cutoff_ratio must be >= 1")
+        _require(0.0 <= self.noise < 1.0, "instruments.presence.noise must be in [0, 1)")
+
+
+@dataclass(frozen=True)
 class InstrumentsConfig:
     note_duration_s: float
     pluck: PluckConfig
     bowed: BowedConfig
+    presence: PresenceConfig
     flute: FluteConfig
 
 

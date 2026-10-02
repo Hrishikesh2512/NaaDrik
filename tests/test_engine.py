@@ -1,8 +1,11 @@
+import itertools
+
 import numpy as np
 import pytest
 
 from naadrik.config import Config
 from naadrik.sound_engine import ObjectState, SoundEngine, soft_clip
+from tests.test_instruments import estimate_f0
 
 
 @pytest.fixture(scope="module")
@@ -33,8 +36,40 @@ def test_render_object_shape_and_range(engine: SoundEngine) -> None:
     assert np.max(np.abs(out)) <= 1.0
 
 
-def test_black_object_is_silent(engine: SoundEngine) -> None:
-    assert not np.any(engine.render_object(0.5, 0.5, 0.0, 0.0, 0.0, 0.0, duration_s=0.5))
+def test_black_object_is_audible(engine: SoundEngine) -> None:
+    out = engine.render_object(0.5, 0.5, 0.0, 0.0, 0.0, 0.0, duration_s=0.5)
+    assert sum(channel_rms(out)) > 0.02
+
+
+@pytest.mark.parametrize("rgb", list(itertools.product((0.0, 0.4, 1.0), repeat=3)))
+def test_every_colour_is_audible(engine: SoundEngine, rgb: tuple[float, float, float]) -> None:
+    out = engine.render_object(0.5, 0.5, 0.0, *rgb, duration_s=0.3)
+    assert sum(channel_rms(out)) > 0.02
+
+
+def test_black_keeps_position_pulse_and_pitch(engine: SoundEngine) -> None:
+    left, right = channel_rms(engine.render_object(0.0, 0.5, 0.3, 0, 0, 0, duration_s=1.0))
+    assert left > 1.5 * right
+    far = engine.render_object(0.5, 0.5, 1.0, 0, 0, 0, duration_s=3.0)
+    near = engine.render_object(0.5, 0.5, 0.0, 0, 0, 0, duration_s=3.0)
+    assert count_pulses(far, engine.sample_rate) == pytest.approx(3, abs=1)
+    assert count_pulses(near, engine.sample_rate) == pytest.approx(24, abs=1)
+
+    def pitch(y: float) -> float:
+        mono = engine.render_object(0.5, y, 1.0, 0, 0, 0, duration_s=0.3).sum(axis=1)
+        return estimate_f0(mono[2400:14400], engine.sample_rate)
+
+    assert pitch(0.0) > 3 * pitch(1.0)
+
+
+def test_brightness_order_black_dark_white(engine: SoundEngine) -> None:
+    def loudness(rgb: tuple[float, float, float]) -> float:
+        return sum(channel_rms(engine.render_object(0.5, 0.5, 0.2, *rgb, duration_s=1.0)))
+
+    black, dark_red, red, white = (
+        loudness(rgb) for rgb in ((0, 0, 0), (0.4, 0, 0), (1, 0, 0), (1, 1, 1))
+    )
+    assert black < dark_red < red < white
 
 
 @pytest.mark.parametrize(("distance", "expected_rate"), [(0.0, 8.0), (1.0, 1.0)])

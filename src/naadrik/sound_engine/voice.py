@@ -94,8 +94,6 @@ class Voice:
             self._start_note(position)
 
     def _start_note(self, offset: int) -> None:
-        if self.target.is_silent:
-            return
         gate_s = min(self._pulse.duty_cycle / self._rate, self._pulse.max_gate_s)
         gate = int(gate_s * self._sr)
         samples = self._bank.mix(self.target.degree, self.target.levels)

@@ -6,7 +6,7 @@
 audio:
   sample_rate: 48000
   block_size: 256          # frames per audio callback (~5.3 ms at 48 kHz)
-  master_gain: 0.8
+  master_gain: 0.75        # leaves a single white object (presence + 3 instruments) below the limiter
   device: null             # null = system default output; or a sounddevice name / index
   live_latency_s: 0.03     # output buffer for live mode; headroom against Python thread contention
 
@@ -46,6 +46,10 @@ instruments:
     cutoff_hz: 6000.0
     body_resonances_hz: [290.0, 520.0, 2900.0]
     bow_noise: 0.03
+  presence:                # every object: a soft neutral hum so no object is ever silent
+    level: 0.25            # gain relative to a 'high' colour instrument (1.0); must be > 0
+    cutoff_ratio: 2.5      # low-pass cutoff as a multiple of the note's pitch (lower = more muted)
+    noise: 0.35            # share of band-limited noise around the pitch, for a hum-like texture
   flute:                   # blue: flute (sine partials + breath)
     gain: 0.9
     harmonics: [1.0, 0.25, 0.08]

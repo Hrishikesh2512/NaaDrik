@@ -2,7 +2,7 @@ import numpy as np
 import pytest
 
 from naadrik.config import Config
-from naadrik.sound_engine.instruments import bowed_note, flute_note, pluck_note
+from naadrik.sound_engine.instruments import bowed_note, flute_note, pluck_note, presence_note
 from naadrik.sound_engine.notes import INSTRUMENTS, NoteBank
 
 SR = 48000
@@ -29,9 +29,14 @@ def bank(config: Config) -> NoteBank:
 
 
 @pytest.mark.parametrize("freq", [196.0, 440.0, 1046.5])
-@pytest.mark.parametrize("instrument", ["pluck", "bowed", "flute"])
+@pytest.mark.parametrize("instrument", ["pluck", "bowed", "flute", "presence"])
 def test_notes_are_in_tune(config: Config, instrument: str, freq: float) -> None:
-    render = {"pluck": pluck_note, "bowed": bowed_note, "flute": flute_note}[instrument]
+    render = {
+        "pluck": pluck_note,
+        "bowed": bowed_note,
+        "flute": flute_note,
+        "presence": presence_note,
+    }[instrument]
     cfg = getattr(config.instruments, instrument)
     note = render(freq, SR, 0.5, cfg, np.random.default_rng(0))
     segment = note[int(0.05 * SR) : int(0.25 * SR)]
@@ -72,7 +77,23 @@ def test_bank_notes_ascend(bank: NoteBank) -> None:
     assert np.all(np.diff(pitches) > 0)
 
 
-def test_mix_weights_instruments(bank: NoteBank) -> None:
-    np.testing.assert_allclose(bank.mix(3, (1.0, 0.0, 0.0)), bank.note("pluck", 3))
-    assert not np.any(bank.mix(3, (0.0, 0.0, 0.0)))
+def test_mix_is_presence_plus_weighted_instruments(bank: NoteBank, config: Config) -> None:
+    presence = config.instruments.presence.level * bank.presence(3)
+    np.testing.assert_allclose(bank.mix(3, (0.0, 0.0, 0.0)), presence, atol=1e-6)
+    np.testing.assert_allclose(
+        bank.mix(3, (1.0, 0.0, 0.0)), bank.note("pluck", 3) + presence, atol=1e-6
+    )
     assert bank.mix(3, (1.0, 0.0, 0.0)) is bank.mix(3, (1.0, 0.0, 0.0))
+
+
+def test_presence_is_muted_compared_with_colour_instruments(config: Config) -> None:
+    def centroid(x: np.ndarray) -> float:
+        power = np.abs(np.fft.rfft(x)) ** 2
+        return float((np.fft.rfftfreq(len(x), 1 / SR) * power).sum() / power.sum())
+
+    rng = np.random.default_rng(0)
+    inst = config.instruments
+    presence = centroid(presence_note(330.0, SR, 0.5, inst.presence, rng)[SR // 10 :])
+    for render, cfg in ((pluck_note, inst.pluck), (bowed_note, inst.bowed)):
+        assert presence < centroid(render(330.0, SR, 0.5, cfg, rng)[SR // 10 :])
+    assert presence < 2 * 330.0

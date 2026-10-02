@@ -36,14 +36,31 @@ Each channel is quantised to off (< 0.25), low (< 0.6) or high, with gains 0, 0.
 and 1. Three levels are few enough to learn and still distinguish, for example, red from orange
 (red + low green) from yellow (red + high green).
 
+### Presence layer
+
+Every note also contains a **presence hum**: a muted triangle wave at the note's pitch, low-passed
+at 2.5× the pitch, blended with soft noise band-limited around the pitch. It is mixed in at
+`instruments.presence.level` (0.25, about 12 dB below a "high" instrument and below a "low"
+one), so black objects are audible and still carry pitch, pulse rate and position, while every
+colour remains louder than black. It has no vibrato, attack transient or breath, so it does not
+read as one of the colour instruments. The level must be greater than zero; the config loader
+rejects 0 because a silent object is a safety risk.
+
+| Colour | What plays |
+|---|---|
+| Black | presence hum only (≈ −15 dB relative to red) |
+| Dark red | hum + quiet sitar |
+| Red | hum + loud sitar |
+| White | hum + all three instruments loud |
+
 Notes are loudness-matched (RMS over the first 0.3 s) before the per-instrument gain, so equal
 colour levels sound roughly equally loud across instruments.
 
 ## Mixing
 
 Up to three voices are summed, multiplied by `master_gain` and passed through a soft limiter
-(linear below 0.8, `tanh` shoulder above), so dense scenes never clip harshly. A single object
-stays below the limiter knee.
+(linear below 0.8, `tanh` shoulder above), so dense scenes never clip harshly. A single object,
+white included, stays below the limiter knee (`master_gain` 0.75).
 
 ## Open questions for the study
 

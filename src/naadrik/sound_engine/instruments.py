@@ -9,7 +9,7 @@ from __future__ import annotations
 import numpy as np
 from scipy import signal
 
-from naadrik.config import BowedConfig, FluteConfig, PluckConfig
+from naadrik.config import BowedConfig, FluteConfig, PluckConfig, PresenceConfig
 
 _BUZZ_THRESHOLD = 0.25
 _END_FADE_S = 0.01
@@ -82,6 +82,29 @@ def flute_note(
     chiff = _highpass(rng.standard_normal(n), 1500.0, sr) * np.exp(-t / 0.025)
     chiff /= np.max(np.abs(chiff)) + 1e-12
     return _finish(body + cfg.chiff * chiff, sr)
+
+
+def presence_note(
+    freq: float, sr: int, duration_s: float, cfg: PresenceConfig, rng: np.random.Generator
+) -> np.ndarray:
+    """Neutral presence hum: a muted triangle at the note's pitch plus soft pitched noise.
+
+    It carries pitch, pulse and position for objects with no colour energy. It is deliberately
+    plain (no vibrato, attack transient or breath) so it never reads as one of the colour
+    instruments.
+    """
+    n = int(duration_s * sr)
+    t = np.arange(n) / sr
+    cutoff = min(cfg.cutoff_ratio * freq, 0.45 * sr)
+    hum = np.zeros(n)
+    for k in range(1, int(cutoff / freq) + 1, 2):  # odd harmonics, 1/k^2: a triangle
+        hum += (-1) ** ((k - 1) // 2) * np.sin(2 * np.pi * k * freq * t) / k**2
+    hum = _lowpass(hum, cutoff, sr)
+    hum /= np.max(np.abs(hum)) + 1e-12
+    noise = _bandpass(rng.standard_normal(n), freq * 0.7, min(freq * 1.5, 0.45 * sr), sr)
+    noise /= np.max(np.abs(noise)) + 1e-12
+    attack = np.clip(t / 0.02, 0.0, 1.0)
+    return _finish(((1.0 - cfg.noise) * hum + cfg.noise * noise) * attack, sr)
 
 
 def _pluck_excitation(

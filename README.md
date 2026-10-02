@@ -15,7 +15,8 @@ Nothing leaves the device.
 | Height | Pitch on a pentatonic scale over 2.5 octaves: higher in the frame means higher pitch |
 | Distance | Pulse rate: close = fast (8 Hz), far = slow (1 Hz). Volume never encodes distance |
 | Colour | Red = plucked string (sitar-like), green = bowed string (violin-like), blue = flute. Each channel is quantised to off / low / high |
-| Brightness | Overall loudness: black is silent, white is all three instruments loud |
+| Brightness | Overall loudness: black is the presence hum alone, white is the hum plus all three instruments loud |
+| Presence | A soft neutral hum under every object, so nothing detected is ever silent; it keeps the object's pitch, pulse and position |
 
 At most three objects sound at once. Every parameter lives in [`config.yaml`](config.yaml).
 The reasoning behind each choice is in [`docs/sound-mapping.md`](docs/sound-mapping.md).

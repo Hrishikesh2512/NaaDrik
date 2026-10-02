@@ -59,7 +59,7 @@ def test_quantise_channel(config: Config, value: float, level: int) -> None:
     assert quantise_channel(value, config.colour) == level
 
 
-def test_black_is_silent_and_white_is_all_loud(config: Config) -> None:
+def test_black_has_no_colour_instruments_and_white_has_all(config: Config) -> None:
     off, _, high = config.colour.levels
     assert rgb_to_levels(0, 0, 0, config.colour) == (off, off, off)
     assert rgb_to_levels(1, 1, 1, config.colour) == (high, high, high)
@@ -85,5 +85,4 @@ def test_map_object_combines_mappings(config: Config) -> None:
     assert params.degree == 12
     assert params.pulse_hz == pytest.approx(config.pulse.near_hz)
     assert params.levels[0] > 0 and params.levels[1:] == (0.0, 0.0)
-    assert not params.is_silent
-    assert map_object(config, 13, 0.5, 0.5, 0.5, 0, 0, 0).is_silent
+    assert map_object(config, 13, 0.5, 0.5, 0.5, 0, 0, 0).levels == (0.0, 0.0, 0.0)
