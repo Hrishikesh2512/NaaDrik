@@ -222,6 +222,28 @@ class PriorityConfig:
 
 
 @dataclass(frozen=True)
+class TrainingConfig:
+    tts_command: str
+    voice: str
+    words_per_minute: int
+    speech_gain: float
+    spatialise_speech: bool
+    duck_db: float
+    gap_s: float
+    repeat_s: float
+    include_height: bool
+    full_speech_sessions: int
+    fade_sessions: int
+    progress_path: str | None
+
+    def __post_init__(self) -> None:
+        _require(80 <= self.words_per_minute <= 450, "training.words_per_minute must be 80-450")
+        _require(self.duck_db >= 0.0, "training.duck_db must not be negative")
+        _require(self.full_speech_sessions >= 0, "training.full_speech_sessions must be >= 0")
+        _require(self.fade_sessions >= 0, "training.fade_sessions must be >= 0")
+
+
+@dataclass(frozen=True)
 class Config:
     audio: AudioConfig
     pitch: PitchConfig
@@ -235,6 +257,7 @@ class Config:
     depth: DepthConfig
     tracking: TrackingConfig
     priority: PriorityConfig
+    training: TrainingConfig
 
     def __post_init__(self) -> None:
         longest_event = self.pulse.max_gate_s + self.pulse.release_ms / 1000.0
@@ -287,7 +310,10 @@ def _resolve_paths(config: Config, base: Path) -> Config:
         model_path=absolute(config.depth.model_path),
         calibration_path=absolute(config.depth.calibration_path),
     )
-    return dataclasses.replace(config, detection=detection, depth=depth)
+    training = config.training
+    if training.progress_path is not None:
+        training = dataclasses.replace(training, progress_path=absolute(training.progress_path))
+    return dataclasses.replace(config, detection=detection, depth=depth, training=training)
 
 
 def config_from_dict(data: Any) -> Config:
