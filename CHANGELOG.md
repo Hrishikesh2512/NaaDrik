@@ -6,6 +6,23 @@ All notable changes to Naadrik are documented here. The format follows
 
 ## [Unreleased]
 
+## [1.0.0-alpha.1] - 2026-10-02
+
+### Added
+
+- Android project (`android/`, `com.naadrik.app`, minSdk 26, targetSdk 37) with a `core` Kotlin
+  module and an `app` module.
+- Kotlin port of the v0.4.1 sound engine: config loader with strict validation, mappings,
+  synthesised instruments and presence hum, note bank, pulsed voices, spatialiser, soft limiter and
+  live mixer; reads the shared `config.yaml`.
+- Parity fixture exported from Python (`scripts/export_parity_fixture.py`) and Kotlin tests that
+  match the Python mapping to 1e-9.
+- Low-latency AudioTrack output at the device's native rate with underrun-driven buffer tuning
+  and DAC-timestamp latency measurement.
+- Demo screen with the listening scenarios and a 10 s engine test that reports render cost,
+  underruns and latency; accessible labels, live-region status and 64 dp touch targets.
+- Android job in CI (ktlint, unit tests, Android lint, debug build).
+
 ## [0.4.1] - 2026-10-02
 
 ### Fixed
