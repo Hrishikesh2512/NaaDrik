@@ -63,7 +63,7 @@ class DemoController(
 
     fun play(scenario: Scenario) =
         run("Playing ${scenario.name}. ${scenario.description}") {
-            val buffer = withContext(Dispatchers.Default) { engine.renderPaths(scenario.paths, scenario.durationS) }
+            val buffer = withContext(Dispatchers.Default) { engine.renderParts(scenario.parts, scenario.durationS) }
             // Advanced by the audio thread, polled by this coroutine.
             val position = AtomicInteger(0)
             val output =

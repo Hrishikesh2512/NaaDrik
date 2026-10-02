@@ -17,6 +17,13 @@ fun softClip(
     return sign(x) * (knee + (1.0 - knee) * tanh((magnitude - knee) / (1.0 - knee)))
 }
 
+/** A sound that plays from [startS] until [endS] (seconds), then rings out. */
+class Part(
+    val path: (Double) -> ObjectState,
+    val startS: Double = 0.0,
+    val endS: Double = Double.POSITIVE_INFINITY,
+)
+
 /**
  * Public sound-engine API. [sampleRate] defaults to the config but on Android is the device's
  * native output rate, so audio never passes through a resampler.
@@ -42,22 +49,44 @@ class SoundEngine(
     fun renderPaths(
         paths: List<(Double) -> ObjectState>,
         durationS: Double,
+    ): FloatArray = renderParts(paths.map { Part(it) }, durationS)
+
+    /**
+     * Render a timeline of parts. At most `max_objects` parts sound at once; a part that ends
+     * is released so its last note rings out naturally.
+     */
+    fun renderParts(
+        parts: List<Part>,
+        durationS: Double,
     ): FloatArray {
-        val limited = paths.take(config.objects.maxObjects)
         val block = config.audio.blockSize
         val total = (durationS * sampleRate).toInt()
-        val voices = limited.map { createVoice(it(0.0)) }
+        val voices = arrayOfNulls<Voice>(parts.size)
+        val releasing = ArrayList<Voice>()
         val out = FloatArray(total * 2)
         val scratch = FloatArray(block * 2)
         var start = 0
         while (start < total) {
             val n = minOf(block, total - start)
-            scratch.fill(0f)
             val t = start.toDouble() / sampleRate
-            voices.forEachIndexed { i, voice ->
-                voice.target = map(limited[i](t))
-                voice.render(n, scratch)
+            scratch.fill(0f)
+            parts.forEachIndexed { i, part ->
+                val voice = voices[i]
+                val active = t >= part.startS && t < part.endS
+                if (voice == null && active && voices.count { it != null } < config.objects.maxObjects) {
+                    voices[i] = createVoice(part.path(t))
+                } else if (voice != null && !active) {
+                    voice.release()
+                    releasing += voice
+                    voices[i] = null
+                }
+                voices[i]?.let {
+                    it.target = map(part.path(t))
+                    it.render(n, scratch)
+                }
             }
+            for (voice in releasing) voice.render(n, scratch)
+            releasing.removeAll { it.finished }
             scratch.copyInto(out, start * 2, 0, n * 2)
             start += n
         }

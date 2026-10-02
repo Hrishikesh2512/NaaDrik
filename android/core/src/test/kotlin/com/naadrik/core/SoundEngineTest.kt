@@ -2,7 +2,9 @@ package com.naadrik.core
 
 import com.naadrik.core.sound.LiveMixer
 import com.naadrik.core.sound.ObjectState
+import com.naadrik.core.sound.Part
 import com.naadrik.core.sound.SCENARIOS
+import com.naadrik.core.sound.Scenario
 import com.naadrik.core.sound.SoundEngine
 import com.naadrik.core.sound.bowedNote
 import com.naadrik.core.sound.fluteNote
@@ -123,9 +125,40 @@ class SoundEngineTest {
     @Test
     fun `all demo scenarios render`() {
         for (scenario in SCENARIOS) {
-            val out = engine.renderPaths(scenario.paths, 0.5)
+            val out = engine.renderParts(scenario.parts, 0.5)
             assertTrue(out.any { it != 0f }, scenario.name)
         }
+    }
+
+    @Test
+    fun `versus scenarios play left alone, then right alone, then both`() {
+        val scenario = SCENARIOS.first { it.name == "Black versus white" }
+        val out = engine.renderParts(scenario.parts, scenario.durationS)
+        val solo = Scenario.VERSUS_SOLO_S
+        val gap = Scenario.VERSUS_GAP_S
+
+        fun window(
+            fromS: Double,
+            toS: Double,
+        ): Pair<Double, Double> = channelRms(out.copyOfRange((fromS * sr).toInt() * 2, (toS * sr).toInt() * 2))
+
+        val (leftL, leftR) = window(0.1, solo - 0.1)
+        val (rightL, rightR) = window(solo + gap + 0.1, 2 * solo + gap - 0.1)
+        val (bothL, bothR) = window(2 * (solo + gap) + 0.1, scenario.durationS - 0.1)
+        assertTrue(leftL > 1.5 * leftR, "first segment must come from the left")
+        assertTrue(rightR > 1.5 * rightL, "second segment must come from the right")
+        assertTrue(rightL + rightR > 2 * (leftL + leftR), "white must be clearly louder than black")
+        assertTrue(bothL > 0.02 && bothR > 0.02, "both sound in the last segment")
+        val (gapL, gapR) = window(solo + 0.4, solo + gap - 0.05)
+        assertTrue(gapL + gapR < 0.2 * (leftL + leftR), "the pause between segments is near-silent")
+    }
+
+    @Test
+    fun `timeline never sounds more than max objects at once`() {
+        val parts = (1..6).map { Part({ _ -> ObjectState(0.5, 0.5, 0.0, 1.0, 0.0, 0.0) }) }
+        val capped = engine.renderParts(parts, 0.3)
+        val three = engine.renderParts(parts.take(config.objects.maxObjects), 0.3)
+        assertTrue(capped.contentEquals(three))
     }
 
     @Test
