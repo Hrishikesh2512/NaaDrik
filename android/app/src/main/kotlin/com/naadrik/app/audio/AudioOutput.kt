@@ -72,29 +72,43 @@ class AudioOutput(
     val stats = OutputStats(device.sampleRate, burst)
 
     @Volatile private var running = false
+
+    // Once released, every AudioTrack call throws "Unable to retrieve AudioTrack pointer", so
+    // anything reported after stop() is captured while the track is alive.
+    @Volatile private var released = false
     private var thread: Thread? = null
-    private var framesWritten = 0L
+
+    @Volatile private var framesWritten = 0L
     private val timestamp = AudioTimestamp()
 
-    val fastPath: Boolean get() = track.performanceMode == AudioTrack.PERFORMANCE_MODE_LOW_LATENCY
-    val bufferFrames: Int get() = track.bufferSizeInFrames
+    /** Whether Android granted the low-latency fast path; fixed when the track is built. */
+    val fastPath: Boolean = track.performanceMode == AudioTrack.PERFORMANCE_MODE_LOW_LATENCY
+
+    /** Current buffer size, kept up to date by the audio thread; still valid after stop(). */
+    @Volatile var bufferFrames: Int = 0
+        private set
 
     fun start() {
-        track.bufferSizeInFrames = 2 * burst
+        check(!released) { "AudioOutput cannot be restarted after stop()" }
+        bufferFrames = track.setBufferSizeInFrames(2 * burst).let { if (it > 0) it else track.bufferSizeInFrames }
         running = true
         track.play()
         thread =
             Thread({ loop() }, "naadrik-audio").apply {
                 start()
             }
-        Log.i(LOG_TAG, "audio started: ${device.sampleRate} Hz, burst $burst, buffer ${track.bufferSizeInFrames}, fast path $fastPath")
+        Log.i(LOG_TAG, "audio started: ${device.sampleRate} Hz, burst $burst, buffer $bufferFrames, fast path $fastPath")
     }
 
+    /** Stops playback and frees the track. Safe to call more than once. */
     fun stop() {
+        if (released) return
         running = false
-        thread?.join(1000)
-        thread = null
+        // Pausing first unblocks a pending blocking write, so the thread exits before release.
         track.pause()
+        thread?.join(JOIN_TIMEOUT_MS)
+        thread = null
+        released = true
         track.flush()
         track.stop()
         track.release()
@@ -102,13 +116,22 @@ class AudioOutput(
 
     /** Seconds until a frame written now reaches the speaker or headphones, from DAC timestamps. */
     fun outputLatencyS(): Double? {
-        if (!track.getTimestamp(timestamp)) return null
+        if (released || !track.getTimestamp(timestamp)) return null
         val queuedS = (framesWritten - timestamp.framePosition).toDouble() / device.sampleRate
         val sinceS = (System.nanoTime() - timestamp.nanoTime) / 1e9
         return (queuedS - sinceS).takeIf { it > 0 }
     }
 
     private fun loop() {
+        try {
+            writeLoop()
+        } catch (e: IllegalStateException) {
+            // Only expected if stop() released the track while a write was still returning.
+            if (!released) throw e
+        }
+    }
+
+    private fun writeLoop() {
         Process.setThreadPriority(Process.THREAD_PRIORITY_URGENT_AUDIO)
         val buffer = FloatArray(burst * 2)
         var lastUnderruns = track.underrunCount
@@ -126,15 +149,16 @@ class AudioOutput(
             if (underruns > lastUnderruns) {
                 stats.underruns += underruns - lastUnderruns
                 lastUnderruns = underruns
-                val grown = minOf(track.bufferSizeInFrames + burst, track.bufferCapacityInFrames)
-                track.bufferSizeInFrames = grown
-                Log.w(LOG_TAG, "underrun: buffer grown to $grown frames")
+                val grown = minOf(bufferFrames + burst, track.bufferCapacityInFrames)
+                bufferFrames = track.setBufferSizeInFrames(grown).let { if (it > 0) it else bufferFrames }
+                Log.w(LOG_TAG, "underrun: buffer grown to $bufferFrames frames")
             }
         }
     }
 
     private companion object {
         const val BYTES_PER_FRAME = 8 // stereo float
+        const val JOIN_TIMEOUT_MS = 1000L
     }
 }
 
