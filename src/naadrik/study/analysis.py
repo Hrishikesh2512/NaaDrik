@@ -96,7 +96,10 @@ class StudyResults:
     def load(cls, paths: list[Path]) -> StudyResults:
         csvs: list[Path] = []
         for path in paths:
-            csvs.extend(sorted(path.glob("*.csv")) if path.is_dir() else [path])
+            if path.is_dir():
+                csvs.extend(sorted(path.glob("*.csv")))
+            elif path.suffix == ".csv":
+                csvs.append(path)
         if not csvs:
             raise NaadrikError(f"No result CSV files found in {', '.join(map(str, paths))}.")
         records: list[TrialRecord] = []
