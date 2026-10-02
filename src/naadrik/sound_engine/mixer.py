@@ -118,7 +118,7 @@ class LiveMixer:
         for object_id, state in objects.items():
             voice = self._voices.get(object_id)
             if voice is None:
-                self._voices[object_id] = self._engine.create_voice(state)
+                self._voices[object_id] = self._engine.create_voice(state, self._voices.values())
             else:
                 voice.update(self._engine.map(state))
         if self._on_applied is not None:

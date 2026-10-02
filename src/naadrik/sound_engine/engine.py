@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Sequence
+from collections.abc import Callable, Iterable, Sequence
 from dataclasses import dataclass
 
 import numpy as np
@@ -10,7 +10,7 @@ import numpy as np
 from naadrik.config import Config
 from naadrik.sound_engine.mapping import SoundParams, map_object
 from naadrik.sound_engine.notes import NoteBank
-from naadrik.sound_engine.voice import Voice
+from naadrik.sound_engine.voice import Voice, staggered_phase
 
 _LIMITER_KNEE = 0.8
 
@@ -38,8 +38,10 @@ class SoundEngine:
             self.config, self.bank.n_degrees, obj.x, obj.y, obj.distance, obj.r, obj.g, obj.b
         )
 
-    def create_voice(self, obj: ObjectState) -> Voice:
-        return Voice(self.bank, self.config, self.map(obj))
+    def create_voice(self, obj: ObjectState, sounding: Iterable[Voice] = ()) -> Voice:
+        """A voice for ``obj``, its pulses interleaved with similar-rate voices in ``sounding``."""
+        params = self.map(obj)
+        return Voice(self.bank, self.config, params, staggered_phase(params.pulse_hz, sounding))
 
     def render_object(
         self,
@@ -65,7 +67,9 @@ class SoundEngine:
         """Render objects whose state changes over time; each path maps seconds to a state."""
         block = self.config.audio.block_size
         total = int(duration_s * self.sample_rate)
-        voices = [self.create_voice(path(0.0)) for path in paths]
+        voices: list[Voice] = []
+        for path in paths:
+            voices.append(self.create_voice(path(0.0), voices))
         out = np.zeros((total, 2), dtype=np.float32)
         for start in range(0, total, block):
             n = min(block, total - start)

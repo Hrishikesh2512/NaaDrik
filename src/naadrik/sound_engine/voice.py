@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import itertools
 import math
+from collections.abc import Iterable
 from dataclasses import dataclass
 
 import numpy as np
@@ -27,7 +29,9 @@ class _NoteEvent:
 
 
 class Voice:
-    def __init__(self, bank: NoteBank, config: Config, params: SoundParams) -> None:
+    def __init__(
+        self, bank: NoteBank, config: Config, params: SoundParams, initial_phase: float = 1.0
+    ) -> None:
         self._bank = bank
         self._pulse = config.pulse
         self._sr = config.audio.sample_rate
@@ -38,7 +42,8 @@ class Voice:
         self.target = params
         self._azimuth = params.azimuth_deg
         self._rate = params.pulse_hz
-        self._phase = 1.0  # sound the first pulse immediately rather than after a full period
+        # Progress (0..1) from the last pulse to the next; 1 sounds a pulse immediately.
+        self._phase = initial_phase
         self._events: list[_NoteEvent] = []
         self._released = False
 
@@ -49,6 +54,10 @@ class Voice:
     @property
     def pulse_hz(self) -> float:
         return self._rate
+
+    @property
+    def phase(self) -> float:
+        return self._phase
 
     @property
     def finished(self) -> bool:
@@ -110,3 +119,29 @@ class Voice:
             mono[event.offset : event.offset + count] += segment * attack * release
         event.position += max(count, 0)
         event.offset = 0
+
+
+_SIMILAR_RATE_RATIO = 1.25
+
+
+def staggered_phase(pulse_hz: float, others: Iterable[Voice]) -> float:
+    """Starting phase that puts a new voice's pulses in the largest gap between similar voices.
+
+    Two sounds with the same pitch and pulse rate whose onsets coincide fuse into one phantom
+    image in the centre of the head, so two objects at the same height and distance would be
+    heard as one. Interleaving the onsets keeps them separate. Alone, a voice starts at once.
+    """
+    phases = sorted(
+        voice.phase % 1.0
+        for voice in others
+        if not voice.finished
+        and abs(math.log(voice.pulse_hz / pulse_hz)) < math.log(_SIMILAR_RATE_RATIO)
+    )
+    if not phases:
+        return 1.0
+    best_start, best_gap = phases[-1], phases[0] + 1.0 - phases[-1]
+    for previous, current in itertools.pairwise(phases):
+        if current - previous > best_gap:
+            best_start, best_gap = previous, current - previous
+    middle = (best_start + best_gap / 2.0) % 1.0
+    return middle or 1.0
