@@ -7,6 +7,7 @@ import sys
 import time
 from typing import Protocol
 
+from naadrik.errors import NaadrikError
 from naadrik.stimuli import OPTIONS, Stimulus
 
 REPLAY = "replay"
@@ -32,7 +33,10 @@ def option_keys(options: tuple[str, ...]) -> dict[str, str]:
 def _read_key() -> str:
     """One keypress without Enter on a terminal; a line on anything else."""
     if not sys.stdin.isatty():
-        return sys.stdin.readline().strip()[:1]
+        line = sys.stdin.readline()
+        if not line:
+            raise NaadrikError("Input ended before the study finished; completed trials are saved.")
+        return line.strip()[:1]
     import termios
     import tty
 
@@ -64,7 +68,7 @@ class KeyboardResponder:
         print(text, flush=True)
 
     def wait_to_start(self, prompt: str) -> None:
-        print(f"{prompt} Press any key to start.", flush=True)
+        print(f"{prompt} Press any key to start.".strip(), flush=True)
         if _read_key() == "\x03":
             raise KeyboardInterrupt
 
