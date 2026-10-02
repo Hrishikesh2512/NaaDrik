@@ -27,7 +27,7 @@ colour:
   thresholds: [0.25, 0.6]  # channel boundaries: below first = off, below second = low, else high
   levels: [0.0, 0.35, 1.0] # instrument gain for off / low / high
   central_fraction: 0.5    # sample colour from the central part of each box to avoid background
-  white_balance: true      # grey-world correction before quantising
+  white_balance: true      # grey-world white balance and exposure normalisation before quantising
 
 instruments:
   note_duration_s: 1.0     # length of each pre-rendered note; must exceed max_gate_s + release
@@ -95,6 +95,7 @@ tracking:
   min_hits: 2              # frames a track must be seen before it can sound
   position_smoothing: 0.4  # weight of each new measurement (1 = no smoothing)
   distance_smoothing: 0.3
+  colour_smoothing: 0.3    # steadies colour so quantised instrument levels do not flicker
 
 priority:                  # score = closeness x importance x centredness x motion boost
   class_importance:

@@ -200,9 +200,10 @@ class TrackingConfig:
     min_hits: int
     position_smoothing: float
     distance_smoothing: float
+    colour_smoothing: float
 
     def __post_init__(self) -> None:
-        for name in ("position_smoothing", "distance_smoothing"):
+        for name in ("position_smoothing", "distance_smoothing", "colour_smoothing"):
             _require(0.0 < getattr(self, name) <= 1.0, f"tracking.{name} must be in (0, 1]")
 
 
