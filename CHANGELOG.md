@@ -6,6 +6,15 @@ All notable changes to Naadrik are documented here. The format follows
 
 ## [Unreleased]
 
+### Added
+
+- Android live sensing: CameraX newest-frame analysis stream, MediaPipe EfficientDet-Lite0 (int8)
+  detection, MiDaS v2.1 small depth on the LiteRT GPU delegate every 4th frame, and the tracker,
+  prioritiser, colour sampler and near/mid/far distance logic ported from Python with parity tests.
+- Live screen with camera preview, debug overlay, a text line per sounding object and latency.
+- ARCore Depth availability probe.
+- `android` section in `config.yaml` (models, delegates, analysis size), read by both loaders.
+
 ### Fixed
 
 - Android: the engine test crashed with "Unable to retrieve AudioTrack pointer" when reporting,

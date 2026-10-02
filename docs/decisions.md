@@ -249,3 +249,28 @@ Increasing the interaural time or phase difference within each sound would not h
 follows the head's natural ITD (up to ~0.66 ms), which is what lateralises each sound, and larger
 values sound diffuse rather than wider. The problem was between the two sources, not between the
 ears. Implemented identically in Python and Kotlin.
+
+## 2026-10-02 · Android depth: MiDaS v2.1 small (TFLite), ARCore probed
+
+Depth Anything V2 Small, the desktop model, has no published TFLite export, and converting it
+needs a TensorFlow toolchain; at ~100 MB it would also take over a second per frame on a mid-range
+phone CPU. MiDaS v2.1 small (MIT, official Intel ISL release, 66 MB, 256x256) predicts the same
+quantity, relative inverse depth, so the shared normalisation and near/mid/far quantiser apply
+unchanged. It runs on the LiteRT GPU delegate where supported, otherwise on two CPU threads, on its
+own thread every 4th frame.
+
+ARCore's Depth API needs exclusive use of the camera, so using it means an ARCore-driven frame
+source in place of CameraX. A2 probes whether the phone installs ARCore and supports depth, and
+reports it; the ARCore frame source is built only once a test phone reports depth support.
+
+## 2026-10-02 · Android detection: int8 EfficientDet-Lite0
+
+The phone uses the int8 build of the desktop's detector (4.6 MB instead of 13.8 MB): same classes
+and boxes, markedly faster on mobile CPUs.
+
+## 2026-10-02 · Android: one APK per CPU family, portrait only
+
+MediaPipe and LiteRT native libraries for all four ABIs added 78 MB; ABI splits produce separate
+arm64-v8a and armeabi-v7a APKs (92 MB and 86 MB, mostly the depth model). The live screen is
+locked to portrait: the phone is held upright or worn on the chest, and a rotation mid-session
+would swap left and right.
