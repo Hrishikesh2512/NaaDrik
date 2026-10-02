@@ -25,20 +25,29 @@ The reasoning behind each choice is in [`docs/sound-mapping.md`](docs/sound-mapp
 | Version | Milestone | State |
 |---|---|---|
 | v0.1.0 | Sound engine | done |
-| v0.2.0 | Live camera pipeline | planned |
+| v0.2.0 | Live camera pipeline | done |
 | v0.3.0 | Training mode | planned |
 | v0.4.0 | Study / evaluation mode | planned |
 | v1.0.0 | Android app | planned |
 
 ## Setup
 
-Requires Python 3.11+ and PortAudio (`sudo dnf install portaudio` or `sudo apt install libportaudio2`).
+Requires Python 3.11+, PortAudio (`sudo dnf install portaudio` or `sudo apt install libportaudio2`),
+a webcam for live mode, and headphones.
 
 ```bash
 python3 -m venv .venv
 source .venv/bin/activate
 pip install -e ".[dev]"
+naadrik models download     # one-time, ~113 MB; everything runs offline afterwards
 ```
+
+| Model | Use | Licence |
+|---|---|---|
+| EfficientDet-Lite0 (MediaPipe Tasks, COCO, 80 classes) | object detection | Apache-2.0 |
+| Depth Anything V2 Small (ONNX Runtime, CPU) | relative depth | Apache-2.0 |
+
+`naadrik models` shows whether they are present and match the expected checksums.
 
 ## Running
 
@@ -52,6 +61,25 @@ naadrik demo --no-play --save-dir output/demo   # write WAV files instead
 naadrik devices                      # list audio outputs
 naadrik --device 0 demo              # play on a specific output
 ```
+
+### Live mode
+
+```bash
+naadrik live                         # webcam + debug window; q quits, d toggles depth view, m mutes
+naadrik live --no-window             # headless
+naadrik live --camera 1 --duration 60 --save-debug output/debug.png
+naadrik calibrate                    # optional: record near/far depth references
+```
+
+The debug window shows each tracked object's box, label, distance and sampled colour, and for
+the (up to three) sounding objects their pitch, azimuth, pulse rate and instrument levels, plus
+live latency figures. Latency is also logged every five seconds.
+
+Distance comes from a relative depth model, so by default it is judged against the rest of the
+scene (`depth.normalisation: scene`). For distances that are stable across scenes, run
+`naadrik calibrate` and set `depth.normalisation: calibrated`.
+
+### Tuning
 
 Edit `config.yaml` and rerun the demo to tune pitch range, pulse rates, colour thresholds,
 instrument timbres or spatialisation. Use `--config PATH` or `NAADRIK_CONFIG` for another file.
@@ -80,18 +108,39 @@ stereo = engine.render_object(x=0.1, y=0.2, distance=0.0, r=1.0, g=0.0, b=0.0)  
 
 ```mermaid
 flowchart LR
-    subgraph sound_engine
-        M[mapping<br/>x,y,distance,rgb to params] --> V[voice<br/>pulse scheduler + gating]
-        N[note bank<br/>pre-rendered pluck / bowed / flute] --> V
-        V --> S[spatialiser<br/>ITD + head shadow]
+    CAM[capture thread<br/>webcam, newest frame only] --> DET
+    CAM --> DEP
+    subgraph detection thread
+        DET[detection<br/>EfficientDet-Lite0] --> TRK[tracker<br/>IoU, smoothing]
+        COL[colour<br/>median RGB + white balance] --> TRK
+        TRK --> PRI[prioritiser<br/>top 3]
     end
-    S --> MX[master + soft limiter] --> O[audio_output<br/>callback stream + watchdog]
-    C[config.yaml] -.-> M & N & V & S
+    DEP[depth thread<br/>Depth Anything V2 Small, every Nth frame] --> DIST[distance<br/>normalise + quantise] --> TRK
+    PRI --> MIX
+    subgraph audio thread
+        MIX[live mixer] --> V[voices<br/>pulse + note bank] --> SP[spatialiser<br/>ITD + head shadow] --> OUT[PortAudio callback]
+    end
+    PRI -.-> UI[debug window]
+    C[config.yaml] -.-> DET & DIST & PRI & V & SP
 ```
 
-Pitch is quantised to a scale, so every note is rendered once at start-up and the real-time
-path only slices, gates, mixes and filters arrays: three voices take about 0.26 ms per 5.3 ms
-audio block. Camera capture, detection, depth and prioritisation modules arrive in v0.2.0.
+| Module | Role |
+|---|---|
+| `capture` | Webcam on its own thread; keeps only the newest frame so delays never accumulate |
+| `detection` | MediaPipe object detector; boxes normalised to [0, 1] |
+| `depth` / `distance` | Relative depth every Nth frame; median disparity in each box → near / mid / far with hysteresis |
+| `colour` | Median RGB of the box centre after grey-world white balance and exposure normalisation |
+| `tracker` | IoU association per label; smoothed position, velocity, distance, approach rate and colour |
+| `prioritiser` | closeness × class importance × centredness, boosted for motion; sticky top-3 |
+| `sound_engine` | Mappings, synthesised instruments, pulsed voices, live mixer |
+| `spatialiser` | Binaural rendering per voice |
+| `audio_output` | Low-latency callback stream with a stall watchdog |
+| `pipeline` / `live` | Threads and wiring; latency measurement |
+| `ui` | Debug view |
+
+Pitch is quantised to a scale, so every note is rendered once at start-up and the audio thread
+only slices, gates, mixes and filters arrays (≈0.26 ms per 5.3 ms block for three voices).
+Measured latency is in [`docs/latency.md`](docs/latency.md).
 
 ## Development
 
