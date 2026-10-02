@@ -91,6 +91,36 @@ def _build_parser() -> argparse.ArgumentParser:
     train.add_argument("--duration", type=float, help="stop after this many seconds")
     train.set_defaults(handler=_run_train)
 
+    study = commands.add_parser("study", help="run the evaluation study (no camera needed)")
+    study.add_argument("--participant", required=True, help="participant id, e.g. P01")
+    study.add_argument(
+        "--condition",
+        choices=["naadrik", "voice", "both"],
+        default="both",
+        help="sonification to test (voice = vOICe-style baseline)",
+    )
+    study.add_argument(
+        "--order",
+        choices=["naadrik-first", "voice-first"],
+        default="naadrik-first",
+        help="condition order for --condition both; alternate it across participants",
+    )
+    study.add_argument(
+        "--phases", default="baseline,training,test", help="comma-separated subset of phases"
+    )
+    study.add_argument(
+        "--simulate",
+        choices=["oracle", "random"],
+        help="simulated participant to validate the protocol (no audio, no keyboard)",
+    )
+    study.add_argument("--seed", type=int, help="random seed for stimulus order")
+    study.set_defaults(handler=_run_study)
+
+    analyse = commands.add_parser("analyse", help="summarise study results with charts")
+    analyse.add_argument("paths", nargs="*", type=Path, help="result CSVs or folders")
+    analyse.add_argument("--out", type=Path, help="output folder (default: <results>/report)")
+    analyse.set_defaults(handler=_run_analyse)
+
     calibrate = commands.add_parser("calibrate", help="record near/far depth references")
     calibrate.add_argument("--camera", type=int, help="camera index (overrides config)")
     calibrate.set_defaults(handler=_run_calibrate)
@@ -192,6 +222,62 @@ def _run_train(args: argparse.Namespace) -> int:
         coach=coach,
     )
     LiveSession(config, options).run()
+    return 0
+
+
+def _run_study(args: argparse.Namespace) -> int:
+    import random
+
+    from naadrik import audio_output
+    from naadrik.study.responders import KeyboardResponder, SimulatedResponder
+    from naadrik.study.session import PHASES, StudySession
+
+    config = load_config(args.config)
+    phases = tuple(p.strip() for p in args.phases.split(",") if p.strip())
+    unknown = set(phases) - set(PHASES)
+    if unknown:
+        log.error("Unknown phase(s) %s; choose from %s", sorted(unknown), ", ".join(PHASES))
+        return 2
+    rng = random.Random(args.seed)
+    participant = args.participant
+    if args.simulate:
+        responder = SimulatedResponder(args.simulate, rng)
+        participant = f"sim-{args.simulate}-{participant}"
+
+        def play(_audio):  # type: ignore[no-untyped-def]
+            return None
+
+    else:
+        responder = KeyboardResponder()
+        device = _output_device(args, config)
+
+        def play(audio):  # type: ignore[no-untyped-def]
+            audio_output.play(audio, config.audio.sample_rate, config.audio.block_size, device)
+
+    if args.condition == "both":
+        conditions = ["naadrik", "voice"]
+        if args.order == "voice-first":
+            conditions.reverse()
+    else:
+        conditions = [args.condition]
+    for condition in conditions:
+        session = StudySession(config, participant, condition, responder, play, rng)
+        path = session.run(phases)
+        log.info("%s results written to %s", condition, path)
+    return 0
+
+
+def _run_analyse(args: argparse.Namespace) -> int:
+    from naadrik.study.analysis import analyse
+
+    config = load_config(args.config)
+    results_dir = Path(config.study.results_dir)
+    paths = args.paths or [results_dir]
+    report, charts = analyse(paths, args.out or results_dir / "report")
+    print(report.read_text(encoding="utf-8"))
+    for chart in charts:
+        log.info("chart: %s", chart)
+    log.info("report: %s", report)
     return 0
 
 

@@ -160,3 +160,27 @@ gradually stepping back. Session counts live in the user data directory, not the
 
 Each of the 27 quantised RGB combinations has a common colour name ("orange" is high red + low
 green), so the spoken name always corresponds exactly to the instrument mix the user hears.
+
+## 2026-10-02 · Study: what the vOICe-style baseline receives
+
+The baseline sonifies an image, so each stimulus is drawn as a grey disc on black: position
+from the grid, size from distance (the only distance cue an image has) and grey level from the
+colour's luma, as a camera-to-greyscale pipeline would produce. Blue therefore renders dim
+(luma 0.11) and quiet, which is faithful to the classic method rather than a handicap added
+here; `greyscale: mean` is available as a fairer-to-blue variant. Parameters follow the classic
+defaults: 1 s left-to-right sweep, 500–5000 Hz exponentially spaced rows, stereo pan with the
+scan, a tick per sweep.
+
+## 2026-10-02 · Study: protocol details
+
+* Stimuli cycle through the whole grid before repeating, so a 27-trial test covers every
+  position/height/distance cell once.
+* Reaction time is measured from the end of the stimulus (playback blocks until then), which
+  keeps it comparable between conditions.
+* Each condition's results go to their own CSV plus a JSON with phase durations; rows are
+  flushed per trial so an interrupted session keeps its data.
+* Analysis uses Wilson intervals and one-sided binomial tests against chance with Holm
+  correction, implemented with SciPy and NumPy rather than adding pandas. Pooling trials across
+  participants is noted as a limitation in `docs/study.md`.
+* Simulated participants (`oracle`, `random`) validate the pipeline; their ids carry a `sim-`
+  prefix and the report flags them, so they cannot be mistaken for human data.

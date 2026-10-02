@@ -6,6 +6,22 @@ All notable changes to Naadrik are documented here. The format follows
 
 ## [Unreleased]
 
+## [0.4.0] - 2026-10-02
+
+### Added
+
+- `naadrik study`: evaluation with synthetic stimuli on a 3×3×3 grid (side × height ×
+  distance) plus a colour set, in baseline (no explanation), training (feedback and replay) and
+  test (no feedback) phases; single-key responses, replays and reaction times.
+- Baseline sonifier modelled on the classic vOICe mapping (greyscale image, 1 s left-to-right
+  sweep, row → frequency, brightness → loudness, stereo pan) for comparison.
+- Per-trial CSV (stimulus, responses, correctness per axis, reaction times, replays) and a
+  session JSON with phase durations; crash-safe incremental writes.
+- `naadrik analyse`: accuracy per axis and overall vs chance with Wilson intervals, binomial
+  tests and Holm correction, training time, mean response time, a Markdown report and charts.
+- Simulated participants for validating the protocol and analysis.
+- `docs/study.md` with instructions for running sessions.
+
 ## [0.3.0] - 2026-10-02
 
 ### Added

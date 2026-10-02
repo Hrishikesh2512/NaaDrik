@@ -27,7 +27,7 @@ The reasoning behind each choice is in [`docs/sound-mapping.md`](docs/sound-mapp
 | v0.1.0 | Sound engine | done |
 | v0.2.0 | Live camera pipeline | done |
 | v0.3.0 | Training mode | done |
-| v0.4.0 | Study / evaluation mode | planned |
+| v0.4.0 | Study / evaluation mode | done |
 | v1.0.0 | Android app | planned |
 
 ## Setup
@@ -98,6 +98,19 @@ first `full_speech_sessions` (3), then the chance of an announcement falls linea
 is announced again every `repeat_s` (20 s). Speech uses eSpeak NG offline
 (`sudo dnf install espeak-ng` or `sudo apt install espeak-ng`).
 
+### Study mode
+
+A controlled comparison of Naadrik against a classic vOICe-style mapping, with synthetic
+stimuli (no camera), three phases (baseline, training with feedback, test) and CSV output:
+
+```bash
+naadrik study --participant P01                  # both conditions
+naadrik study --participant P02 --order voice-first
+naadrik analyse                                  # report.md + charts in results/report/
+```
+
+See [`docs/study.md`](docs/study.md) for the protocol, file formats and analysis.
+
 ### Tuning
 
 Edit `config.yaml` and rerun the demo to tune pitch range, pulse rates, colour thresholds,
@@ -158,6 +171,7 @@ flowchart LR
 | `training` | Spoken descriptions, session progress and fade-out, announcement coach |
 | `speech` | Offline text-to-speech via eSpeak NG |
 | `stimuli` | Synthetic 3×3×3 grid stimuli shared by training and the study |
+| `study` | Baseline sonifier, three-phase protocol, CSV records, analysis and charts |
 | `ui` | Debug view |
 
 Pitch is quantised to a scale, so every note is rendered once at start-up and the audio thread
