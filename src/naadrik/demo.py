@@ -84,8 +84,13 @@ SCENARIOS: tuple[Scenario, ...] = (
         (_still(0.1, 0.5, 0.4, 0.45, 0.45, 0.45), _still(0.9, 0.5, 0.4, 1.0, 1.0, 1.0)),
     ),
     Scenario(
+        "black-vs-white",
+        "Presence: black (soft hum only) on the left, white (hum + all three loud) on the right.",
+        (_still(0.1, 0.5, 0.2, 0.0, 0.0, 0.0), _still(0.9, 0.5, 0.2, 1.0, 1.0, 1.0)),
+    ),
+    Scenario(
         "black",
-        "Black object: silence by design (no colour energy, no sound).",
+        "Black object: no colour instruments, only the presence hum, still pulsing and placed.",
         (_still(0.5, 0.5, 0.0, 0.0, 0.0, 0.0),),
         duration_s=1.5,
     ),

@@ -14,7 +14,8 @@ TRAINING = {
         "Height: higher objects have higher pitch. Distance: close objects pulse fast, far "
         "objects pulse slowly; volume does not change with distance. Colour: red is a plucked "
         "string like a sitar, green a bowed string like a violin, blue a flute; mixed colours "
-        "play several instruments, and white plays all three loudly. After each answer you "
+        "play several instruments, and white plays all three loudly. Every object also has "
+        "a soft hum underneath, so a black object is just the hum. After each answer you "
         "will be told the correct answer and hear the sound again."
     ),
     "voice": (
