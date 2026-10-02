@@ -4,12 +4,13 @@ from __future__ import annotations
 
 import argparse
 import logging
+import os
 import sys
 import time
 from pathlib import Path
 
 from naadrik import __version__
-from naadrik.config import load_config
+from naadrik.config import Config, load_config
 from naadrik.errors import NaadrikError
 
 log = logging.getLogger("naadrik")
@@ -27,18 +28,37 @@ def main(argv: list[str] | None = None) -> int:
         parser.print_help()
         return 2
     try:
-        return args.handler(args)
+        code = args.handler(args)
     except NaadrikError as exc:
         log.error("%s", exc)
-        return 1
+        code = 1
     except KeyboardInterrupt:
-        return 130
+        code = 130
+    _exit_past_hung_audio(code)
+    return code
+
+
+def _exit_past_hung_audio(code: int) -> None:
+    # PortAudio's own shutdown blocks forever on a stream that already hung, so skip it.
+    from naadrik import audio_output
+
+    if audio_output.has_abandoned_streams():
+        sys.stdout.flush()
+        sys.stderr.flush()
+        os._exit(code)
+
+
+def _device_arg(value: str) -> str | int:
+    return int(value) if value.isdigit() else value
 
 
 def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(prog="naadrik", description="Naadrik: see through sound.")
     parser.add_argument("--version", action="version", version=f"naadrik {__version__}")
     parser.add_argument("--config", type=Path, help="path to config.yaml")
+    parser.add_argument(
+        "--device", type=_device_arg, help="audio output device index or name (overrides config)"
+    )
     parser.add_argument("-v", "--verbose", action="store_true", help="debug logging")
     commands = parser.add_subparsers(title="commands")
 
@@ -81,9 +101,15 @@ def _run_demo(args: argparse.Namespace) -> int:
             )
             log.info("saved %s", path)
         if not args.no_play:
-            audio_output.play(buffer, engine.sample_rate, config.audio.device)
+            audio_output.play(
+                buffer, engine.sample_rate, config.audio.block_size, _output_device(args, config)
+            )
             time.sleep(args.pause)
     return 0
+
+
+def _output_device(args: argparse.Namespace, config: Config) -> str | int | None:
+    return args.device if args.device is not None else config.audio.device
 
 
 def _run_devices(_args: argparse.Namespace) -> int:
