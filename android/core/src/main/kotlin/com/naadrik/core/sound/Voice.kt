@@ -13,6 +13,7 @@ class Voice(
     config: Config,
     params: SoundParams,
     maxBlock: Int,
+    initialPhase: Double = 1.0,
 ) {
     private class NoteEvent {
         var degree = 0
@@ -39,7 +40,10 @@ class Voice(
         private set
     var pulseHz = params.pulseHz
         private set
-    private var phase = 1.0 // sound the first pulse immediately rather than after a full period
+
+    /** Progress (0..1) from the last pulse to the next; 1 sounds a pulse immediately. */
+    var phase = initialPhase
+        private set
     private var released = false
 
     val finished: Boolean get() = released && events.none { it.active }

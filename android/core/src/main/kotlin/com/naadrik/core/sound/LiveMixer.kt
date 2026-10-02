@@ -56,7 +56,11 @@ class LiveMixer(
         }
         for ((id, state) in update.objects) {
             val voice = voices[id]
-            if (voice == null) voices[id] = engine.createVoice(state) else voice.target = engine.map(state)
+            if (voice == null) {
+                voices[id] = engine.createVoice(state, voices.values)
+            } else {
+                voice.target = engine.map(state)
+            }
         }
         onApplied?.invoke(update.captureNanos)
     }

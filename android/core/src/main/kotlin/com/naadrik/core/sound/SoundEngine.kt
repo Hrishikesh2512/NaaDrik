@@ -37,7 +37,14 @@ class SoundEngine(
 
     fun map(obj: ObjectState): SoundParams = mapObject(config, bank.nDegrees, obj)
 
-    fun createVoice(obj: ObjectState): Voice = Voice(bank, config, map(obj), maxBlock)
+    /** A voice for [obj], its pulses interleaved with any similar-rate voices in [sounding]. */
+    fun createVoice(
+        obj: ObjectState,
+        sounding: Collection<Voice> = emptyList(),
+    ): Voice {
+        val params = map(obj)
+        return Voice(bank, config, params, maxBlock, staggeredPhase(params.pulseHz, sounding))
+    }
 
     /** Render one static object to interleaved stereo float samples. */
     fun renderObject(
@@ -74,7 +81,7 @@ class SoundEngine(
                 val voice = voices[i]
                 val active = t >= part.startS && t < part.endS
                 if (voice == null && active && voices.count { it != null } < config.objects.maxObjects) {
-                    voices[i] = createVoice(part.path(t))
+                    voices[i] = createVoice(part.path(t), voices.filterNotNull())
                 } else if (voice != null && !active) {
                     voice.release()
                     releasing += voice
