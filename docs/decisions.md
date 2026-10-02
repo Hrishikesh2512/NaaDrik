@@ -71,3 +71,63 @@ On the development machine, PortAudio's route through PipeWire to a hands-free B
 headset sometimes accepted a stream and then stopped pulling audio, which made blocking playback
 hang forever. Output now uses a low-latency callback stream; start-up, stop and playback are
 watched and a stall raises `AudioDeviceError` with guidance instead of freezing.
+
+## 2026-10-02 · Detection with MediaPipe EfficientDet-Lite0
+
+MediaPipe Tasks with EfficientDet-Lite0 (Apache-2.0) was preferred in the brief and runs in
+≈30 ms at 320 px on a laptop CPU. Ultralytics YOLO was not considered because of its AGPL
+licence. The same `.tflite` model runs on Android in Phase 2.
+
+## 2026-10-02 · Depth via ONNX Runtime, not PyTorch
+
+Depth Anything V2 Small runs from the `onnx-community` ONNX export on ONNX Runtime (CPU, about
+17 MB installed) instead of PyTorch (gigabytes). Only the Small variant is Apache-2.0; Base and
+Large are non-commercial and are deliberately not referenced. At 336×252 input it takes
+≈100 ms alone and ≈170 ms while detection runs concurrently, so it runs on every 4th frame on its
+own thread and the newest map is reused in between.
+
+## 2026-10-02 · Distance: scene-relative by default, calibration optional
+
+The model outputs relative inverse depth with an unknown scale and shift per frame, so metres
+are not available. Two normalisations are offered:
+
+* `scene` (default): an object's median disparity is placed between the frame's 5th and 95th
+  percentiles. Needs no setup; "near" means "near compared with the rest of the view".
+* `calibrated`: `naadrik calibrate` records the centre disparity of something at ~50 cm and
+  something at ~3 m. More stable across scenes, but drifts if the model's scale changes a lot.
+
+The result is quantised to near / mid / far (`depth.levels: 3`) with a hysteresis margin, so
+depth noise at a boundary does not make the pulse rate flicker. Set `levels: 0` for continuous.
+Distances are only fed to the tracker when a new depth map arrives, so the approach rate
+reflects real change.
+
+## 2026-10-02 · Colour: grey-world balance also normalises exposure
+
+The grey-world correction scales each channel so the frame averages to mid grey. Besides
+removing colour casts, this compensates exposure: without it a dim room made every object
+quantise to "off" and fall silent. Brightness is therefore relative to the scene, similar to
+human lightness constancy. Gains are clamped (0.5–4×) and smoothed across frames.
+
+## 2026-10-02 · Tracking and selection stability
+
+A lightweight IoU tracker (same label only) provides identity, smoothing and velocity. A track
+must be seen in two frames before it can sound, which filters single-frame false positives, and
+survives up to eight missed frames. The prioritiser keeps sounding objects unless a newcomer
+beats the weakest by `switch_margin`, so voices do not swap back and forth between similar
+objects.
+
+## 2026-10-02 · Threads and the audio callback
+
+Capture, detection and depth each have a thread; the audio callback is PortAudio's thread. The
+perception side only swaps in a new target set; the callback creates, updates and releases
+voices itself, so it never waits for perception. Live mode uses a 30 ms output buffer
+(`audio.live_latency_s`) rather than the minimum, as headroom against Python thread contention;
+no underflows were seen in testing.
+
+## 2026-10-02 · Latency definition
+
+End-to-end latency is measured from the moment a frame reaches the application to the moment
+the audio block carrying its update reaches the DAC (PortAudio's DAC time). It excludes camera
+exposure and USB transfer before the frame arrives, and any Bluetooth delay after the DAC. It
+also excludes the musical delay until the next pulse onset, which depends on the pulse rate by
+design.
