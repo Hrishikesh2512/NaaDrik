@@ -18,10 +18,6 @@ class SoundParams:
     pulse_hz: float
     levels: tuple[float, float, float]
 
-    @property
-    def is_silent(self) -> bool:
-        return not any(self.levels)
-
 
 def _clamp01(value: float) -> float:
     return min(max(float(value), 0.0), 1.0)
