@@ -61,6 +61,13 @@ def test_invalid_values_rejected(raw_config: dict, section: str, key: str, value
         config_from_dict(broken)
 
 
+@pytest.mark.parametrize("level", [0.0, -0.1, 1.5])
+def test_presence_must_stay_audible(raw_config: dict, level: float) -> None:
+    raw_config["instruments"]["presence"]["level"] = level
+    with pytest.raises(ConfigError, match="audible"):
+        config_from_dict(raw_config)
+
+
 def test_relative_paths_resolve_against_config_file(raw_config: dict, tmp_path: Path) -> None:
     (tmp_path / "custom.yaml").write_text(yaml.safe_dump(raw_config))
     config = load_config(tmp_path / "custom.yaml")
