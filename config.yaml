@@ -126,3 +126,17 @@ priority:                  # score = closeness x importance x centredness x moti
   approach_speed: 0.15     # distance units per second that count as approaching
   moving_speed: 0.25       # frame widths per second that count as moving
   switch_margin: 0.15      # a new object must beat a sounding one by this much to replace it
+
+training:
+  tts_command: espeak-ng   # offline text-to-speech executable
+  voice: en
+  words_per_minute: 170
+  speech_gain: 0.9
+  spatialise_speech: true  # speak each label from its object's direction
+  duck_db: 12.0            # other sounds drop by this much while speech plays
+  gap_s: 0.15              # pause between a spoken label and its object's sound
+  repeat_s: 20.0           # announce a still-sounding object again after this long
+  include_height: false    # add "high" / "low" to labels
+  full_speech_sessions: 3  # sessions in which every object is announced
+  fade_sessions: 5         # then the chance of announcing falls linearly to zero
+  progress_path: null      # null = user data directory (~/.local/share/naadrik/training.yaml)

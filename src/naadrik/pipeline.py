@@ -25,6 +25,7 @@ from naadrik.scene import Box, Detection, Frame
 from naadrik.sound_engine import ObjectState, SoundEngine, SoundParams
 from naadrik.sound_engine.mixer import LiveMixer
 from naadrik.tracker import Track, Tracker
+from naadrik.training.coach import Candidate, TrainingCoach
 
 log = logging.getLogger(__name__)
 
@@ -74,6 +75,7 @@ class LivePipeline:
         mixer: LiveMixer,
         monitor: LatencyMonitor,
         normaliser: DistanceNormaliser | None = None,
+        coach: TrainingCoach | None = None,
     ) -> None:
         self._config = config
         self._camera = camera
@@ -83,6 +85,7 @@ class LivePipeline:
         self._mixer = mixer
         self._monitor = monitor
         self._normaliser = normaliser or DistanceNormaliser(config.depth)
+        self._coach = coach
         self._tracker = Tracker(config.tracking)
         self._prioritiser = Prioritiser(config.priority, config.objects.max_objects)
         self._colour = ColourSampler(config.colour)
@@ -171,7 +174,16 @@ class LivePipeline:
 
         selected = self._prioritiser.select(self._tracker.confirmed())
         states = {track.id: self._object_state(track) for track, _ in selected}
-        self._mixer.update(states, frame.timestamp)
+        announcements = None
+        if self._coach is not None:
+            # Wait for a distance before describing an object, or every label would say "mid".
+            ready = [
+                Candidate(track.id, track.label, states[track.id])
+                for track, _ in selected
+                if track.distance is not None
+            ]
+            announcements = self._coach.announcements(ready, frame.timestamp)
+        self._mixer.update(states, frame.timestamp, announcements)
         self._monitor.record("pipeline", time.perf_counter() - frame.timestamp)
 
         snapshot = self._build_snapshot(frame, selected, states, disparity)

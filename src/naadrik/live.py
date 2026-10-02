@@ -20,6 +20,7 @@ from naadrik.latency import END_TO_END, LatencyMonitor
 from naadrik.pipeline import LivePipeline
 from naadrik.sound_engine import SoundEngine
 from naadrik.sound_engine.mixer import LiveMixer
+from naadrik.training.coach import TrainingCoach
 from naadrik.ui.debug_view import DebugWindow, render_debug
 
 log = logging.getLogger(__name__)
@@ -37,6 +38,7 @@ class LiveOptions:
     duration_s: float | None = None
     save_debug: Path | None = None
     muted: bool = False
+    coach: TrainingCoach | None = None
 
 
 class LiveSession:
@@ -52,7 +54,14 @@ class LiveSession:
         self.detector = ObjectDetector(config.detection)
         self.depth = DepthEstimator(config.depth)
         self.camera = CameraCapture(config.camera)
-        self.mixer = LiveMixer(self.engine, on_applied=self._record_end_to_end)
+        training = config.training
+        self.mixer = LiveMixer(
+            self.engine,
+            on_applied=self._record_end_to_end,
+            duck_db=training.duck_db if options.coach else 0.0,
+            gap_s=training.gap_s if options.coach else 0.0,
+            spatialise_speech=training.spatialise_speech,
+        )
         self.mixer.muted = options.muted
         device = options.device if options.device is not None else config.audio.device
         self.audio = AudioOutput(
@@ -63,7 +72,14 @@ class LiveSession:
             latency=config.audio.live_latency_s,
         )
         self.pipeline = LivePipeline(
-            config, self.camera, self.detector, self.depth, self.engine, self.mixer, self.monitor
+            config,
+            self.camera,
+            self.detector,
+            self.depth,
+            self.engine,
+            self.mixer,
+            self.monitor,
+            coach=options.coach,
         )
         self.window: DebugWindow | None = None
 

@@ -26,14 +26,14 @@ The reasoning behind each choice is in [`docs/sound-mapping.md`](docs/sound-mapp
 |---|---|---|
 | v0.1.0 | Sound engine | done |
 | v0.2.0 | Live camera pipeline | done |
-| v0.3.0 | Training mode | planned |
+| v0.3.0 | Training mode | done |
 | v0.4.0 | Study / evaluation mode | planned |
 | v1.0.0 | Android app | planned |
 
 ## Setup
 
 Requires Python 3.11+, PortAudio (`sudo dnf install portaudio` or `sudo apt install libportaudio2`),
-a webcam for live mode, and headphones.
+eSpeak NG for training mode, a webcam for live mode, and headphones.
 
 ```bash
 python3 -m venv .venv
@@ -78,6 +78,25 @@ live latency figures. Latency is also logged every five seconds.
 Distance comes from a relative depth model, so by default it is judged against the rest of the
 scene (`depth.normalisation: scene`). For distances that are stable across scenes, run
 `naadrik calibrate` and set `depth.normalisation: calibrated`.
+
+### Training mode
+
+Training mode speaks a short label before each object's sound ("red cup, left, near"), from the
+object's direction, so the mapping can be learned by ear. Other sounds duck while it speaks.
+
+```bash
+naadrik train                        # live camera with spoken labels
+naadrik train --no-camera            # practise with synthetic objects, no camera needed
+naadrik train --no-camera --trials 20
+naadrik train --always-speak         # ignore the fade-out
+naadrik train --reset-progress       # start again from session 1
+```
+
+Sessions are counted in `~/.local/share/naadrik/training.yaml`. Every object is announced in the
+first `full_speech_sessions` (3), then the chance of an announcement falls linearly to zero over
+`fade_sessions` (5), so by session 9 the user relies on the sounds alone. An object still sounding
+is announced again every `repeat_s` (20 s). Speech uses eSpeak NG offline
+(`sudo dnf install espeak-ng` or `sudo apt install espeak-ng`).
 
 ### Tuning
 
@@ -136,6 +155,9 @@ flowchart LR
 | `spatialiser` | Binaural rendering per voice |
 | `audio_output` | Low-latency callback stream with a stall watchdog |
 | `pipeline` / `live` | Threads and wiring; latency measurement |
+| `training` | Spoken descriptions, session progress and fade-out, announcement coach |
+| `speech` | Offline text-to-speech via eSpeak NG |
+| `stimuli` | Synthetic 3×3×3 grid stimuli shared by training and the study |
 | `ui` | Debug view |
 
 Pitch is quantised to a scale, so every note is rendered once at start-up and the audio thread

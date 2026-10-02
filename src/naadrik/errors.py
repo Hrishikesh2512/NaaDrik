@@ -19,3 +19,7 @@ class CameraError(NaadrikError):
 
 class ModelNotFoundError(NaadrikError):
     """A model file is missing or cannot be loaded."""
+
+
+class SpeechError(NaadrikError):
+    """Offline text-to-speech is unavailable or failed."""
