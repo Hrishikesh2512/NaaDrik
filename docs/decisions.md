@@ -231,3 +231,21 @@ instead of caching premixed notes, so the audio thread never allocates.
 
 Compose gives semantic roles (headings, live regions, content descriptions) directly in code,
 which suits a TalkBack-first app. All touch targets are at least 64 dp.
+
+## 2026-10-02 · Interleaved pulses so equal objects do not fuse
+
+Found in phone testing: two objects at the same height and distance, one left and one right,
+were heard as a single sound in the centre. With the same pitch, timbre and pulse rate, and
+onsets that coincide, the two signals are correlated enough to fuse into one phantom image, as a
+mono recording does on two speakers.
+
+When a voice starts while others sound at a similar rate (within a ratio of 1.25), its first
+pulse is placed in the middle of the largest gap between their pulses: half a period after a
+single other voice, a third or so between two. Onset asynchrony is among the strongest cues for
+hearing separate sources, and the result is an audible left, right, left, right. Voices alone, or
+at clearly different rates, still start immediately.
+
+Increasing the interaural time or phase difference within each sound would not help: it already
+follows the head's natural ITD (up to ~0.66 ms), which is what lateralises each sound, and larger
+values sound diffuse rather than wider. The problem was between the two sources, not between the
+ears. Implemented identically in Python and Kotlin.

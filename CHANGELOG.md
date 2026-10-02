@@ -6,6 +6,17 @@ All notable changes to Naadrik are documented here. The format follows
 
 ## [Unreleased]
 
+### Fixed
+
+- Android: the engine test crashed with "Unable to retrieve AudioTrack pointer" when reporting,
+  because it read the audio track after releasing it.
+- Two objects at the same height and distance fused into one centred sound; pulses of
+  similar-rate voices are now interleaved (Python and Android).
+
+### Changed
+
+- Android demo: comparison scenarios play left alone, then right alone, then both.
+
 ## [1.0.0-alpha.1] - 2026-10-02
 
 ### Added
