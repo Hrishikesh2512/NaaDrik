@@ -28,9 +28,11 @@ class AudioConfig:
     block_size: int
     master_gain: float
     device: str | int | None
+    live_latency_s: float
 
     def __post_init__(self) -> None:
         _require(self.sample_rate >= 8000, "audio.sample_rate must be at least 8000")
+        _require(0.0 < self.live_latency_s <= 0.5, "audio.live_latency_s must be in (0, 0.5]")
         _require(self.block_size > 0, "audio.block_size must be positive")
         _require(0.0 < self.master_gain <= 2.0, "audio.master_gain must be in (0, 2]")
 
@@ -71,8 +73,11 @@ class PulseConfig:
 class ColourConfig:
     thresholds: tuple[float, float]
     levels: tuple[float, float, float]
+    central_fraction: float
+    white_balance: bool
 
     def __post_init__(self) -> None:
+        _require(0.0 < self.central_fraction <= 1.0, "colour.central_fraction must be in (0, 1]")
         low, high = self.thresholds
         _require(0.0 < low < high < 1.0, "colour.thresholds must satisfy 0 < low < high < 1")
         _require(self.levels[0] == 0.0, "colour.levels[0] must be 0 so 'off' is silent")
@@ -143,6 +148,79 @@ class ObjectsConfig:
 
 
 @dataclass(frozen=True)
+class CameraConfig:
+    index: int
+    capture_width: int
+    capture_height: int
+    fps: int
+    process_width: int
+
+    def __post_init__(self) -> None:
+        _require(self.index >= 0, "camera.index must not be negative")
+        _require(64 <= self.process_width <= self.capture_width, "camera.process_width invalid")
+
+
+@dataclass(frozen=True)
+class DetectionConfig:
+    model_path: str
+    score_threshold: float
+    max_results: int
+
+    def __post_init__(self) -> None:
+        _require(0.0 < self.score_threshold < 1.0, "detection.score_threshold must be in (0, 1)")
+
+
+@dataclass(frozen=True)
+class DepthConfig:
+    model_path: str
+    every_n_frames: int
+    input_width: int
+    threads: int
+    box_fraction: float
+    normalisation: str
+    calibration_path: str
+    levels: int
+    hysteresis: float
+
+    def __post_init__(self) -> None:
+        _require(self.every_n_frames >= 1, "depth.every_n_frames must be at least 1")
+        _require(self.input_width % 14 == 0, "depth.input_width must be a multiple of 14")
+        _require(
+            self.normalisation in ("scene", "calibrated"),
+            "depth.normalisation must be scene or calibrated",
+        )
+        _require(self.levels == 0 or self.levels >= 2, "depth.levels must be 0 or at least 2")
+        _require(0.0 <= self.hysteresis < 0.5, "depth.hysteresis must be in [0, 0.5)")
+
+
+@dataclass(frozen=True)
+class TrackingConfig:
+    iou_threshold: float
+    max_missed_frames: int
+    min_hits: int
+    position_smoothing: float
+    distance_smoothing: float
+
+    def __post_init__(self) -> None:
+        for name in ("position_smoothing", "distance_smoothing"):
+            _require(0.0 < getattr(self, name) <= 1.0, f"tracking.{name} must be in (0, 1]")
+
+
+@dataclass(frozen=True)
+class PriorityConfig:
+    class_importance: dict[str, float]
+    default_importance: float
+    centre_weight: float
+    motion_boost: float
+    approach_speed: float
+    moving_speed: float
+    switch_margin: float
+
+    def __post_init__(self) -> None:
+        _require(0.0 <= self.centre_weight <= 1.0, "priority.centre_weight must be in [0, 1]")
+
+
+@dataclass(frozen=True)
 class Config:
     audio: AudioConfig
     pitch: PitchConfig
@@ -151,6 +229,11 @@ class Config:
     instruments: InstrumentsConfig
     spatial: SpatialConfig
     objects: ObjectsConfig
+    camera: CameraConfig
+    detection: DetectionConfig
+    depth: DepthConfig
+    tracking: TrackingConfig
+    priority: PriorityConfig
 
     def __post_init__(self) -> None:
         longest_event = self.pulse.max_gate_s + self.pulse.release_ms / 1000.0
@@ -186,7 +269,24 @@ def load_config(path: str | Path | None = None) -> Config:
         ) from exc
     except yaml.YAMLError as exc:
         raise ConfigError(f"Config file {config_path} is not valid YAML: {exc}") from exc
-    return config_from_dict(raw)
+    return _resolve_paths(config_from_dict(raw), config_path.resolve().parent)
+
+
+def _resolve_paths(config: Config, base: Path) -> Config:
+    """Make relative file paths relative to the config file, not the working directory."""
+
+    def absolute(path: str) -> str:
+        return str(path if Path(path).is_absolute() else base / path)
+
+    detection = dataclasses.replace(
+        config.detection, model_path=absolute(config.detection.model_path)
+    )
+    depth = dataclasses.replace(
+        config.depth,
+        model_path=absolute(config.depth.model_path),
+        calibration_path=absolute(config.depth.calibration_path),
+    )
+    return dataclasses.replace(config, detection=detection, depth=depth)
 
 
 def config_from_dict(data: Any) -> Config:
@@ -212,6 +312,14 @@ def _coerce(hint: Any, value: Any, where: str) -> Any:
     if dataclasses.is_dataclass(hint):
         return _build(hint, value, where)
     origin = typing.get_origin(hint)
+    if origin is dict:
+        if not isinstance(value, dict):
+            raise ConfigError(f"{where} must be a mapping")
+        key_type, value_type = typing.get_args(hint)
+        return {
+            _coerce(key_type, key, where): _coerce(value_type, item, f"{where}.{key}")
+            for key, item in value.items()
+        }
     if origin is tuple:
         if not isinstance(value, list | tuple):
             raise ConfigError(f"{where} must be a list")
@@ -233,5 +341,7 @@ def _coerce(hint: Any, value: Any, where: str) -> Any:
     if hint is int and isinstance(value, int) and not isinstance(value, bool):
         return value
     if hint is str and isinstance(value, str):
+        return value
+    if hint is bool and isinstance(value, bool):
         return value
     raise ConfigError(f"{where} must be {getattr(hint, '__name__', hint)}, got {value!r}")

@@ -11,3 +11,11 @@ class ConfigError(NaadrikError):
 
 class AudioDeviceError(NaadrikError):
     """The audio output device could not be opened or failed while playing."""
+
+
+class CameraError(NaadrikError):
+    """The camera could not be opened or stopped delivering frames."""
+
+
+class ModelNotFoundError(NaadrikError):
+    """A model file is missing or cannot be loaded."""

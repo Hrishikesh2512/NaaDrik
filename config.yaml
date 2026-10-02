@@ -8,6 +8,7 @@ audio:
   block_size: 256          # frames per audio callback (~5.3 ms at 48 kHz)
   master_gain: 0.8
   device: null             # null = system default output; or a sounddevice name / index
+  live_latency_s: 0.03     # output buffer for live mode; headroom against Python thread contention
 
 pitch:
   base_hz: 196.0           # G3, lowest note (bottom of frame)
@@ -25,6 +26,8 @@ pulse:
 colour:
   thresholds: [0.25, 0.6]  # channel boundaries: below first = off, below second = low, else high
   levels: [0.0, 0.35, 1.0] # instrument gain for off / low / high
+  central_fraction: 0.5    # sample colour from the central part of each box to avoid background
+  white_balance: true      # grey-world correction before quantising
 
 instruments:
   note_duration_s: 1.0     # length of each pre-rendered note; must exceed max_gate_s + release
@@ -62,3 +65,63 @@ spatial:
 
 objects:
   max_objects: 3
+
+camera:
+  index: 0
+  capture_width: 640
+  capture_height: 480
+  fps: 30
+  process_width: 320       # frames are resized to this width before any processing
+
+detection:
+  model_path: models/efficientdet_lite0.tflite
+  score_threshold: 0.4
+  max_results: 10
+
+depth:
+  model_path: models/depth_anything_v2_small.onnx
+  every_n_frames: 4        # depth is slow; run it on every Nth frame and reuse the latest map
+  input_width: 336         # model input width, multiple of 14 (height keeps the aspect ratio)
+  threads: 2
+  box_fraction: 0.6        # median depth over the central part of each box
+  normalisation: scene     # scene (relative to the current frame) | calibrated (`naadrik calibrate`)
+  calibration_path: calibration.yaml
+  levels: 3                # 0 = continuous distance; 3 = near / mid / far
+  hysteresis: 0.08         # margin before a quantised distance level changes
+
+tracking:
+  iou_threshold: 0.3
+  max_missed_frames: 8     # keep a track alive through brief detector dropouts
+  min_hits: 2              # frames a track must be seen before it can sound
+  position_smoothing: 0.4  # weight of each new measurement (1 = no smoothing)
+  distance_smoothing: 0.3
+
+priority:                  # score = closeness x importance x centredness x motion boost
+  class_importance:
+    person: 1.0
+    car: 1.0
+    bus: 1.0
+    truck: 1.0
+    motorcycle: 1.0
+    bicycle: 0.9
+    dog: 0.8
+    cat: 0.6
+    chair: 0.7
+    bench: 0.6
+    couch: 0.6
+    dining table: 0.6
+    bed: 0.5
+    door: 0.8
+    stop sign: 0.8
+    traffic light: 0.8
+    fire hydrant: 0.6
+    bottle: 0.4
+    cup: 0.4
+    cell phone: 0.4
+    laptop: 0.4
+  default_importance: 0.5
+  centre_weight: 0.5       # 0 = position ignored; 1 = objects at the frame edge score zero
+  motion_boost: 0.5        # extra weight for objects moving or approaching
+  approach_speed: 0.15     # distance units per second that count as approaching
+  moving_speed: 0.25       # frame widths per second that count as moving
+  switch_margin: 0.15      # a new object must beat a sounding one by this much to replace it

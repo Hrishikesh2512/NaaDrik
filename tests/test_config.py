@@ -59,3 +59,18 @@ def test_invalid_values_rejected(raw_config: dict, section: str, key: str, value
     broken[section][key] = value
     with pytest.raises(ConfigError):
         config_from_dict(broken)
+
+
+def test_relative_paths_resolve_against_config_file(raw_config: dict, tmp_path: Path) -> None:
+    (tmp_path / "custom.yaml").write_text(yaml.safe_dump(raw_config))
+    config = load_config(tmp_path / "custom.yaml")
+    assert Path(config.detection.model_path) == tmp_path / raw_config["detection"]["model_path"]
+    assert Path(config.depth.calibration_path).parent == tmp_path
+
+
+def test_class_importance_is_a_mapping(raw_config: dict) -> None:
+    config = config_from_dict(raw_config)
+    assert config.priority.class_importance["person"] == 1.0
+    raw_config["priority"]["class_importance"]["person"] = "high"
+    with pytest.raises(ConfigError, match="class_importance.person"):
+        config_from_dict(raw_config)
