@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import os
+
 import numpy as np
 
 from naadrik.config import DetectionConfig
@@ -13,6 +15,9 @@ from naadrik.scene import Box, Detection
 class ObjectDetector:
     def __init__(self, cfg: DetectionConfig) -> None:
         path = require_model(cfg.model_path, DETECTOR)
+        # MediaPipe and TFLite log informational lines to stderr through glog by default.
+        os.environ.setdefault("GLOG_minloglevel", "2")
+        os.environ.setdefault("TF_CPP_MIN_LOG_LEVEL", "2")
         # Imported here: MediaPipe takes about a second to import and is only needed live.
         import mediapipe as mp
         from mediapipe.tasks.python import BaseOptions, vision
