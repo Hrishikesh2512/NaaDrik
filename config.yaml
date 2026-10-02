@@ -1,0 +1,64 @@
+# Naadrik configuration. Every mapping parameter lives here.
+# Coordinates: x, y are normalised image coordinates in [0, 1], origin top-left.
+# Distance is normalised to [0, 1]: 0 = nearest, 1 = farthest.
+# Colour channels are in [0, 1].
+
+audio:
+  sample_rate: 48000
+  block_size: 256          # frames per audio callback (~5.3 ms at 48 kHz)
+  master_gain: 0.8
+  device: null             # null = system default output; or a sounddevice name / index
+
+pitch:
+  base_hz: 196.0           # G3, lowest note (bottom of frame)
+  octaves: 2.5
+  scale: [0, 2, 4, 7, 9]   # major pentatonic, semitones above each octave root
+
+pulse:
+  near_hz: 8.0             # pulse rate at distance 0
+  far_hz: 1.0              # pulse rate at distance 1 (log-interpolated in between)
+  duty_cycle: 0.5          # fraction of each pulse period the note sounds
+  max_gate_s: 0.35         # cap so slow pulses stay short beeps rather than drones
+  attack_ms: 2.0
+  release_ms: 25.0
+
+colour:
+  thresholds: [0.25, 0.6]  # channel boundaries: below first = off, below second = low, else high
+  levels: [0.0, 0.35, 1.0] # instrument gain for off / low / high
+
+instruments:
+  note_duration_s: 1.0     # length of each pre-rendered note; must exceed max_gate_s + release
+  pluck:                   # red: sitar-like plucked string (Karplus-Strong)
+    gain: 1.0
+    decay_s: 0.9           # time for the string to fall by 60 dB
+    brightness: 0.7        # 0 = dull excitation, 1 = bright
+    buzz: 0.35             # jawari-style bridge buzz
+    drive: 2.0             # tanh saturation; tames the attack peak and adds upper harmonics
+    sympathetic: 0.12      # level of the octave sympathetic string
+  bowed:                   # green: violin-like bowed string
+    gain: 0.9
+    vibrato_hz: 5.5
+    vibrato_cents: 15.0
+    vibrato_delay_s: 0.12
+    cutoff_hz: 6000.0
+    body_resonances_hz: [290.0, 520.0, 2900.0]
+    bow_noise: 0.03
+  flute:                   # blue: flute (sine partials + breath)
+    gain: 0.9
+    harmonics: [1.0, 0.25, 0.08]
+    breath: 0.06
+    chiff: 0.25            # onset noise burst level
+    vibrato_hz: 4.8
+    vibrato_cents: 8.0
+    tremolo_depth: 0.08
+
+spatial:
+  mode: head_model         # head_model (ITD + spherical-head shadow) | pan (ITD + constant-power ILD)
+  max_azimuth_deg: 80.0    # azimuth at the frame edges; wider than the lens so positions separate clearly
+  head_radius_m: 0.0875
+  extra_ild_db: 9.0        # broadband level difference at 90 deg, on top of the head model, so low notes lateralise too
+  rear_lowpass_hz: 3500.0  # extra darkening for sources behind the listener
+  smoothing_ms: 60.0       # glide time constant for azimuth and pulse rate
+
+objects:
+  max_objects: 3
