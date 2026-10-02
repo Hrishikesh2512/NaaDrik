@@ -33,6 +33,7 @@ instruments:
     decay_s: 0.9           # time for the string to fall by 60 dB
     brightness: 0.7        # 0 = dull excitation, 1 = bright
     buzz: 0.35             # jawari-style bridge buzz
+    drive: 2.0             # tanh saturation; tames the attack peak and adds upper harmonics
     sympathetic: 0.12      # level of the octave sympathetic string
   bowed:                   # green: violin-like bowed string
     gain: 0.9
@@ -55,7 +56,7 @@ spatial:
   mode: head_model         # head_model (ITD + spherical-head shadow) | pan (ITD + constant-power ILD)
   max_azimuth_deg: 80.0    # azimuth at the frame edges; wider than the lens so positions separate clearly
   head_radius_m: 0.0875
-  extra_ild_db: 6.0        # broadband level difference at 90 deg, on top of the head model, so low notes lateralise too
+  extra_ild_db: 9.0        # broadband level difference at 90 deg, on top of the head model, so low notes lateralise too
   rear_lowpass_hz: 3500.0  # extra darkening for sources behind the listener
   smoothing_ms: 60.0       # glide time constant for azimuth and pulse rate
 

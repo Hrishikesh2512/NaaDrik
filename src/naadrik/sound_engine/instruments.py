@@ -32,7 +32,10 @@ def pluck_note(
 
     sympathetic = _karplus_strong(buzzed * 0.05, 2.0 * freq, sr, cfg.decay_s * 2.0, n)
     sympathetic /= np.max(np.abs(sympathetic)) + 1e-12
-    return _finish(buzzed + cfg.sympathetic * sympathetic, sr)
+    mixed = buzzed + cfg.sympathetic * sympathetic
+    if cfg.drive > 0.0:
+        mixed = np.tanh(cfg.drive * mixed) / np.tanh(cfg.drive)
+    return _finish(mixed, sr)
 
 
 def bowed_note(

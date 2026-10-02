@@ -85,6 +85,7 @@ class PluckConfig:
     decay_s: float
     brightness: float
     buzz: float
+    drive: float
     sympathetic: float
 
 
