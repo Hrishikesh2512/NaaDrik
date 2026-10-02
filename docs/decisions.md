@@ -131,3 +131,32 @@ the audio block carrying its update reaches the DAC (PortAudio's DAC time). It e
 exposure and USB transfer before the frame arrives, and any Bluetooth delay after the DAC. It
 also excludes the musical delay until the next pulse onset, which depends on the pulse rate by
 design.
+
+## 2026-10-02 · Offline speech with eSpeak NG
+
+eSpeak NG is small, fully offline, available in every Linux distribution, and fast (≈7 ms per
+label, cached thereafter), so labels can be synthesised on the detection thread without a worker.
+It is run as a subprocess, so its GPL licence does not affect Naadrik's. Its voice is robotic;
+Piper (MIT) sounds far better but needs ~60 MB voice models, so it is a candidate for later.
+Android has an offline system TTS for Phase 2.
+
+## 2026-10-02 · Label first, then the sound
+
+An announced object's voice is held until its label (plus `gap_s`) has finished, so the user
+hears "red cup, left, near" and then the sound it describes, which is the pairing that teaches
+the mapping. The label is spatialised at the object's azimuth, reinforcing direction, and other
+voices are ducked by 12 dB for intelligibility. Labels wait until the object has a depth
+estimate, otherwise every first label would say "mid distance".
+
+## 2026-10-02 · Fading speech by probability, per announcement
+
+The brief asks for speech that fades out over sessions. Each due announcement is spoken with a
+probability that is 1 for the first three sessions and then falls linearly to 0 over five more.
+Skipping individual announcements (rather than lowering the volume) keeps every spoken label
+intelligible, and the user gets a mix of confirmed and unconfirmed objects, like a teacher
+gradually stepping back. Session counts live in the user data directory, not the repository.
+
+## 2026-10-02 · Spoken colour names
+
+Each of the 27 quantised RGB combinations has a common colour name ("orange" is high red + low
+green), so the spoken name always corresponds exactly to the instrument mix the user hears.
