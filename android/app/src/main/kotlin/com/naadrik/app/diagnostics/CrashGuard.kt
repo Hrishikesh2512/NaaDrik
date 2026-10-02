@@ -3,6 +3,7 @@ package com.naadrik.app.diagnostics
 import android.content.Context
 import android.content.SharedPreferences
 import android.util.Log
+import androidx.core.content.edit
 import com.naadrik.app.LOG_TAG
 import java.io.File
 
@@ -49,11 +50,10 @@ object CrashGuard {
         traceFile = File(context.filesDir, TRACE_FILE)
         // A new build may have fixed what crashed before, so give every step a fresh try.
         if (prefs.getLong(KEY_VERSION, -1L) != versionCode) {
-            prefs
-                .edit()
-                .remove(KEY_FAILED)
-                .putLong(KEY_VERSION, versionCode)
-                .commit()
+            prefs.edit(commit = true) {
+                remove(KEY_FAILED)
+                putLong(KEY_VERSION, versionCode)
+            }
         }
         val unfinished = prefs.getString(KEY_STAGE, null)
         val failed = prefs.getStringSet(KEY_FAILED, emptySet())!!.toMutableSet()
@@ -61,11 +61,10 @@ object CrashGuard {
         if (unfinished != null) {
             failed += unfinished
             messages += "The last start stopped during: $unfinished."
-            prefs
-                .edit()
-                .remove(KEY_STAGE)
-                .putStringSet(KEY_FAILED, failed)
-                .commit()
+            prefs.edit(commit = true) {
+                remove(KEY_STAGE)
+                putStringSet(KEY_FAILED, failed)
+            }
         }
         if (traceFile.isFile) {
             messages += "Last error:\n" +
@@ -94,15 +93,17 @@ object CrashGuard {
         stage: String,
         block: () -> T,
     ): T {
-        prefs.edit().putString(KEY_STAGE, stage).commit()
+        // Synchronous writes on purpose: the record must be on disk before a step that may kill
+        // the process, which apply() does not guarantee.
+        prefs.edit(commit = true) { putString(KEY_STAGE, stage) }
         val result = block()
-        prefs.edit().remove(KEY_STAGE).commit()
+        prefs.edit(commit = true) { remove(KEY_STAGE) }
         return result
     }
 
     /** Forget earlier failures, e.g. after an app update that may have fixed them. */
     fun reset() {
-        prefs.edit().clear().commit()
+        prefs.edit(commit = true) { clear() }
         failedStages = emptySet()
         previousCrash = null
     }
