@@ -22,8 +22,10 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.core.content.ContextCompat
+import androidx.core.content.pm.PackageInfoCompat
 import androidx.lifecycle.lifecycleScope
 import com.naadrik.app.demo.DemoController
+import com.naadrik.app.diagnostics.CrashGuard
 import com.naadrik.app.live.LiveController
 import com.naadrik.app.ui.DemoScreen
 import com.naadrik.app.ui.HomeScreen
@@ -37,6 +39,7 @@ class MainActivity : ComponentActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        CrashGuard.install(applicationContext, PackageInfoCompat.getLongVersionCode(packageManager.getPackageInfo(packageName, 0)))
         demo = DemoController(applicationContext, lifecycleScope)
         demo.load()
         live = LiveController(applicationContext, lifecycleScope)

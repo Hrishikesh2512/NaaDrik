@@ -48,10 +48,11 @@ class MidasDepth(
                 chosen = Interpreter(model, Interpreter.Options().addDelegate(delegate))
                 gpu = delegate
                 label = "gpu"
-            } catch (e: Exception) {
+            } catch (e: Throwable) {
+                // Errors too: a missing OpenCL/GL driver surfaces as a LinkageError.
                 gpu?.close()
                 gpu = null
-                Log.w(LOG_TAG, "GPU delegate unavailable, using CPU: ${e.message}")
+                Log.w(LOG_TAG, "GPU delegate unavailable, using CPU: $e")
             }
         }
         interpreter = chosen ?: Interpreter(model, Interpreter.Options().setNumThreads(cfg.depthThreads))

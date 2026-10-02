@@ -16,6 +16,7 @@ import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.core.content.ContextCompat
 import androidx.lifecycle.LifecycleOwner
 import com.naadrik.app.LOG_TAG
+import com.naadrik.app.diagnostics.CrashGuard
 import com.naadrik.core.config.Config
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -83,7 +84,9 @@ class CameraFrames(
                     },
                 )
             cameraProvider.unbindAll()
-            cameraProvider.bindToLifecycle(owner, CameraSelector.DEFAULT_BACK_CAMERA, *useCases.toTypedArray())
+            CrashGuard.stage(CrashGuard.CAMERA) {
+                cameraProvider.bindToLifecycle(owner, CameraSelector.DEFAULT_BACK_CAMERA, *useCases.toTypedArray())
+            }
             Log.i(LOG_TAG, "camera bound: analysis ${analysis.resolutionInfo?.resolution}")
         }, ContextCompat.getMainExecutor(context))
     }

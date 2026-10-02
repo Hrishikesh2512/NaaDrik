@@ -13,6 +13,7 @@ import com.naadrik.app.camera.CameraFrames
 import com.naadrik.app.depth.MidasDepth
 import com.naadrik.app.depth.probeArCoreDepth
 import com.naadrik.app.detection.MediaPipeDetector
+import com.naadrik.app.diagnostics.CrashGuard
 import com.naadrik.core.perception.END_TO_END
 import com.naadrik.core.perception.Frame
 import com.naadrik.core.perception.FramePipeline
@@ -54,7 +55,7 @@ class LiveController(
     private val scope: CoroutineScope,
 ) {
     private val device = DeviceAudio.query(context)
-    private val _state = MutableStateFlow(LiveState())
+    private val _state = MutableStateFlow(LiveState(report = listOfNotNull(CrashGuard.previousCrash)))
     val state: StateFlow<LiveState> = _state
 
     private var session: Session? = null
@@ -76,6 +77,7 @@ class LiveController(
         val pipeline = FramePipeline(config, engine, mixer, monitor)
         lateinit var detector: MediaPipeDetector
         var depth: MidasDepth? = null
+        var depthRuns = 0
         var frameIndex = 0L
         var lastPublishNanos = 0L
         var reporter: Job? = null
@@ -91,20 +93,26 @@ class LiveController(
             try {
                 val s = Session(EngineProvider.get(context))
                 withContext(Dispatchers.Default) {
-                    s.detector = MediaPipeDetector(context, s.config)
+                    s.detector = CrashGuard.stage(CrashGuard.DETECTOR) { MediaPipeDetector(context, s.config) }
                     // The GPU delegate must live on the thread that runs it.
-                    s.depth = s.depthExecutor.submit<MidasDepth> { MidasDepth(context, s.config.android) }.get()
+                    s.depth = s.depthExecutor.submit<MidasDepth?> { createDepth(s) }.get()
                 }
                 s.audio = AudioOutput(device, s.mixer::render)
                 s.audio.start()
                 s.camera.start(owner, preview) { frame -> onFrame(s, frame) }
                 session = s
                 s.reporter = scope.launch { report(s) }
-                val depthLine = "live depth MiDaS small on ${s.depth?.backend}"
+                val depthLine = s.depth?.let { "live depth MiDaS small on ${it.backend}" } ?: "live depth off (it crashed before)"
                 Log.i(LOG_TAG, "REPORT $depthLine")
-                _state.value = LiveState(running = true, status = "Sensing. Point the camera ahead.", report = listOf(depthLine))
+                val notes = listOfNotNull(CrashGuard.previousCrash, depthLine)
+                _state.value = LiveState(running = true, status = "Sensing. Point the camera ahead.", report = notes)
                 launch(Dispatchers.Default) {
-                    val arcore = "live ${probeArCoreDepth(context)}"
+                    val arcore =
+                        if (CrashGuard.failed(CrashGuard.ARCORE)) {
+                            "live arcore check skipped (it crashed before)"
+                        } else {
+                            "live ${CrashGuard.stage(CrashGuard.ARCORE) { probeArCoreDepth(context) }}"
+                        }
                     Log.i(LOG_TAG, "REPORT $arcore")
                     _state.value = _state.value.copy(report = _state.value.report + arcore)
                 }
@@ -131,6 +139,17 @@ class LiveController(
         _state.value = LiveState(status = "Stopped.", report = _state.value.report + summary)
     }
 
+    /** MiDaS on the GPU unless that crashed before, then the CPU, then no depth at all. */
+    private fun createDepth(s: Session): MidasDepth? {
+        val cfg = s.config.android
+        val gpuFailed = CrashGuard.failed(CrashGuard.DEPTH_GPU) || CrashGuard.failed(CrashGuard.DEPTH_GPU_RUN)
+        if (cfg.depthDelegate == "gpu" && !gpuFailed) {
+            return CrashGuard.stage(CrashGuard.DEPTH_GPU) { MidasDepth(context, cfg) }
+        }
+        if (CrashGuard.failed(CrashGuard.DEPTH_CPU)) return null
+        return CrashGuard.stage(CrashGuard.DEPTH_CPU) { MidasDepth(context, cfg.copy(depthDelegate = "cpu")) }
+    }
+
     private fun onFrame(
         s: Session,
         frame: CameraFrame,
@@ -143,7 +162,15 @@ class LiveController(
                 s.depthExecutor.execute {
                     try {
                         val started = System.nanoTime()
-                        s.depth?.let { s.pipeline.submitDepth(it.estimate(bitmap), index) }
+                        s.depth?.let { depth ->
+                            val map =
+                                if (s.depthRuns++ == 0 && depth.backend == "gpu") {
+                                    CrashGuard.stage(CrashGuard.DEPTH_GPU_RUN) { depth.estimate(bitmap) }
+                                } else {
+                                    depth.estimate(bitmap)
+                                }
+                            s.pipeline.submitDepth(map, index)
+                        }
                         s.monitor.record("depth", (System.nanoTime() - started) / 1e9)
                     } catch (e: Exception) {
                         Log.e(LOG_TAG, "depth failed", e)
@@ -153,7 +180,8 @@ class LiveController(
                 }
             }
             val started = System.nanoTime()
-            val detections = s.detector.detect(bitmap)
+            val detections =
+                if (index == 0L) CrashGuard.stage(CrashGuard.DETECTOR_RUN) { s.detector.detect(bitmap) } else s.detector.detect(bitmap)
             s.monitor.record("detection", (System.nanoTime() - started) / 1e9)
 
             val pixels = IntArray(bitmap.width * bitmap.height)

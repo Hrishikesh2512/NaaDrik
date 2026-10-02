@@ -33,6 +33,7 @@ fun probeArCoreDepth(context: Context): String =
                 session.close()
             }
         }
-    } catch (e: Exception) {
+    } catch (e: Throwable) {
+        // Errors too: a missing or mismatched ARCore service can surface as a LinkageError.
         "arcore unavailable: ${e.javaClass.simpleName}"
     }
